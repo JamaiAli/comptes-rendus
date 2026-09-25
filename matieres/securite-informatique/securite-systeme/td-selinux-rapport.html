@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TD SELinux — Journal de bord</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+
+    --c-id: #5fd0c0;      /* identité SELinux   : teal */
+    --c-role: #e0ab4c;    /* rôle SELinux       : ambre */
+    --c-type: #e2685f;    /* type SELinux       : corail */
+
+    --bg: #eef1f3;
+    --panel: #ffffff;
+    --panel-2: #f4f6f8;
+    --text: #1a2128;
+    --muted: #56636f;
+    --border: #d7dce1;
+    --accent: #2f6f6a;
+    --accent-soft: #e3f1ef;
+    --warn: #a8501f;
+    --warn-soft: #fbeee3;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10141a;
+      --panel: #171d25;
+      --panel-2: #1c232c;
+      --text: #e7ecf1;
+      --muted: #8b96a3;
+      --border: #2a323d;
+      --accent: #6fd6c9;
+      --accent-soft: #17332f;
+      --warn: #e2a877;
+      --warn-soft: #3a2718;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10141a;
+    --panel: #171d25;
+    --panel-2: #1c232c;
+    --text: #e7ecf1;
+    --muted: #8b96a3;
+    --border: #2a323d;
+    --accent: #6fd6c9;
+    --accent-soft: #17332f;
+    --warn: #e2a877;
+    --warn-soft: #3a2718;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 16px); scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 780px);
+    justify-content: center;
+    gap: 48px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 20px 120px;
+  }
+
+  nav.toc {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 24px);
+    align-self: start;
+    font-size: 13.5px;
+  }
+  nav.toc .toc-kicker {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 2px solid var(--border);
+  }
+  nav.toc li { margin: 0; }
+  nav.toc a {
+    display: block;
+    padding: 7px 0 7px 14px;
+    margin-left: -2px;
+    border-left: 2px solid transparent;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  nav.toc a:hover { color: var(--text); border-left-color: var(--border); }
+  nav.toc .num { font-family: var(--mono); color: var(--muted); margin-right: 6px; }
+
+  .mobile-toc { display: none; }
+
+  header.hero {
+    margin-bottom: 46px;
+  }
+  header.hero .eyebrow {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  header.hero h1 {
+    font-size: clamp(28px, 4vw, 38px);
+    line-height: 1.15;
+    margin: 0 0 14px;
+    font-weight: 700;
+    max-width: 18ch;
+  }
+  header.hero p.lede {
+    max-width: 62ch;
+    color: var(--muted);
+    font-size: 16px;
+    margin: 0;
+  }
+  header.hero .meta {
+    margin-top: 22px;
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  section { margin-bottom: 56px; scroll-margin-top: 20px; }
+  section > h2 {
+    font-size: 21px;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  section > h2 .tag {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-weight: 500;
+  }
+  section > .dek {
+    color: var(--muted);
+    margin: 0 0 20px;
+    max-width: 64ch;
+  }
+
+  h3.q {
+    font-size: 15.5px;
+    font-weight: 600;
+    margin: 30px 0 10px;
+    padding: 8px 12px;
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+  }
+  h3.q .qlabel { font-family: var(--mono); color: var(--accent); margin-right: 8px; }
+
+  p { margin: 0 0 14px; }
+  ul, ol.plain { padding-left: 20px; margin: 0 0 14px; }
+
+  /* ---------- terminal ---------- */
+  .term {
+    background: #0a0d12;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #232a33;
+    margin: 16px 0;
+    box-shadow: 0 8px 24px -12px rgba(0,0,0,0.45);
+  }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: #12171e;
+    border-bottom: 1px solid #232a33;
+  }
+  .term-bar .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.r { background: #e2685f; } .dot.y { background: #e0ab4c; } .dot.g { background: #5fd0c0; }
+  .term-title {
+    margin-left: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #8b96a3;
+  }
+  .term-title b { color: #d7dde3; font-weight: 600; }
+  .term-body {
+    margin: 0;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12.6px;
+    line-height: 1.65;
+    color: #d7dde3;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .term-body .prompt { color: #5fd0c0; }
+  .term-body .cmd { color: #f2f5f7; font-weight: 600; }
+  .term-body .out { color: #9aa5b1; }
+  .term-body .deny { color: #ff9d8f; background: rgba(226,104,95,0.12); }
+  .term-body .ok { color: #7fe0c9; }
+  .term-body .hint { color: #6b7684; font-style: italic; }
+
+  .ctx .id { color: var(--c-id); }
+  .ctx .role { color: var(--c-role); }
+  .ctx .type { color: var(--c-type); }
+  .ctx { font-weight: 600; }
+
+  .term-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .term-pair .term { margin: 0; }
+  @media (max-width: 720px) {
+    .term-pair { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- bubble ---------- */
+  .bubble {
+    position: relative;
+    background: var(--accent-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: -4px 0 20px;
+    font-size: 14px;
+  }
+  .bubble::before {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 28px;
+    width: 13px;
+    height: 13px;
+    background: var(--accent-soft);
+    border-left: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    transform: rotate(45deg);
+  }
+  .bubble .lbl {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: none;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+  }
+  .bubble p:last-child { margin-bottom: 0; }
+
+  .note {
+    background: var(--warn-soft);
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border));
+    border-left: 3px solid var(--warn);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 16px;
+    margin: 16px 0 22px;
+    font-size: 14px;
+  }
+  .note .lbl {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--warn);
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 700;
+  }
+  .note p:last-child { margin-bottom: 0; }
+
+  .answer {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13.5px;
+    margin: 4px 0 16px;
+  }
+  .answer .lbl { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  table.map {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 10px 0 22px;
+  }
+  table.map th, table.map td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.map th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  table.map td.mono, table.map th.mono { font-family: var(--mono); font-size: 12.5px; }
+
+  .status-pending {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--warn);
+    border: 1px dashed var(--warn);
+    border-radius: 5px;
+    padding: 2px 8px;
+    margin-left: 4px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    margin: 6px 0 26px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .legend span.sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 44px 0; }
+
+  footer {
+    color: var(--muted);
+    font-size: 12.5px;
+    font-family: var(--mono);
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    nav.toc { display: none; }
+    .mobile-toc { display: block; margin-bottom: 30px; }
+    .mobile-toc summary {
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-2);
+    }
+    .mobile-toc ol { list-style: none; padding: 10px 4px 4px 4px; margin: 0; }
+    .mobile-toc a { color: var(--text); text-decoration: none; display: block; padding: 6px 10px; font-size: 13.5px; }
+    .mobile-toc .num { font-family: var(--mono); color: var(--muted); margin-right: 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <nav class="toc" aria-label="Sommaire">
+    <div class="toc-kicker">SOMMAIRE</div>
+    <ol>
+      <li><a href="#contexte"><span class="num">00</span>Contexte du TD</a></li>
+      <li><a href="#environnement"><span class="num">01</span>Mise en place</a></li>
+      <li><a href="#identites"><span class="num">02</span>Identités &amp; rôles</a></li>
+      <li><a href="#q1"><span class="num">03</span>Contextes objets</a></li>
+      <li><a href="#q2"><span class="num">04</span>Contextes sujets</a></li>
+      <li><a href="#roles-status"><span class="num">05</span>newrole &amp; sestatus</a></li>
+      <li><a href="#permissif"><span class="num">06</span>Permissif vs enforcing</a></li>
+      <li><a href="#traces"><span class="num">07</span>Traces AVC</a></li>
+      <li><a href="#suite"><span class="num">08</span>Où on en est</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <details class="mobile-toc">
+      <summary>Sommaire</summary>
+      <ol>
+        <li><a href="#contexte"><span class="num">00</span>Contexte du TD</a></li>
+        <li><a href="#environnement"><span class="num">01</span>Mise en place</a></li>
+        <li><a href="#identites"><span class="num">02</span>Identités &amp; rôles</a></li>
+        <li><a href="#q1"><span class="num">03</span>Contextes objets</a></li>
+        <li><a href="#q2"><span class="num">04</span>Contextes sujets</a></li>
+        <li><a href="#roles-status"><span class="num">05</span>newrole &amp; sestatus</a></li>
+        <li><a href="#permissif"><span class="num">06</span>Permissif vs enforcing</a></li>
+        <li><a href="#traces"><span class="num">07</span>Traces AVC</a></li>
+        <li><a href="#suite"><span class="num">08</span>Où on en est</a></li>
+      </ol>
+    </details>
+
+    <header class="hero">
+      <div class="eyebrow">TD SELinux — Jérémy Briffaut</div>
+      <h1>Journal de bord : administration SELinux sur Gentoo Hardened</h1>
+      <p class="lede">Ce document reprend chaque commande exécutée depuis le début du TD, explique précisément ce qu'elle fait et pourquoi on l'utilise à ce moment précis, et relie chaque manipulation à une question du TD.</p>
+      <div class="meta">
+        <span>hôte : briffaut</span>
+        <span>ip : 192.168.106.139</span>
+        <span>hyperviseur : VMware Workstation</span>
+      </div>
+    </header>
+
+    <div class="legend">
+      <span><span class="sw" style="background:var(--c-id)"></span>identité</span>
+      <span><span class="sw" style="background:var(--c-role)"></span>rôle</span>
+      <span><span class="sw" style="background:var(--c-type)"></span>type</span>
+      <span style="color:var(--muted)">— un contexte SELinux s'écrit toujours <span class="ctx"><span class="id">identité</span>:<span class="role">rôle</span>:<span class="type">type</span></span>, et cette coloration est utilisée dans tout le document, y compris dans les sorties de terminal.</span>
+    </div>
+
+    <section id="contexte">
+      <h2>Contexte du TD <span class="tag">pourquoi</span></h2>
+      <p class="dek">Avant de taper la moindre commande, il faut comprendre quel problème SELinux résout.</p>
+      <p>Sous Linux « classique », le contrôle d'accès est <strong>discrétionnaire (DAC)</strong> : les droits `rwx` et le propriétaire d'un fichier décident de tout, et root passe outre toutes les règles. SELinux ajoute une couche de <strong>contrôle d'accès obligatoire (MAC)</strong> : chaque processus et chaque objet (fichier, socket, périphérique...) reçoit un <em>contexte de sécurité</em>, et une politique centrale décide quels contextes ont le droit d'interagir avec quels autres — <strong>même root peut se voir refuser un accès</strong> si la politique ne l'autorise pas explicitement.</p>
+      <p>La VM utilisée est une <strong>Gentoo Hardened</strong>, une distribution Gentoo durcie où SELinux est activé nativement avec la politique <code>strict</code> de refpolicy. Le TD se déroule en deux temps : d'abord comprendre le modèle (identités, rôles, types, modes permissif/enforcing), puis écrire un module de politique sur mesure pour confiner l'application <code>claws-mail</code>.</p>
+    </section>
+
+    <section id="environnement">
+      <h2>01 · Mise en place de l'environnement</h2>
+      <p class="dek">Avant de pouvoir taper la moindre commande SELinux, il faut faire tourner la VM et pouvoir s'y connecter confortablement.</p>
+
+      <h3 class="q"><span class="qlabel">ÉTAPE</span>Décompression et import de la VM</h3>
+      <p>L'archive <code>gentoo-hardened-selinux.zip</code> a été décompressée puis importée dans VMware Workstation. Au premier démarrage, VMware a affiché un avertissement :</p>
+      <div class="bubble">
+        <span class="lbl">POURQUOI CETTE POPUP ?</span>
+        <p>VMware associe à chaque VM une adresse MAC et un UUID uniques. Quand le dossier de la VM apparaît « de nulle part » (ici : extrait d'un zip), VMware ne sait pas s'il s'agit d'une VM déplacée (garder les mêmes identifiants) ou copiée (en générer de nouveaux pour éviter un conflit réseau avec l'original). On a répondu <strong>« I Copied It »</strong>, le choix correct puisqu'il s'agit bien d'une copie extraite d'une archive.</p>
+      </div>
+
+      <h3 class="q"><span class="qlabel">ÉTAPE</span>Premier login et récupération de l'IP</h3>
+      <div class="term">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">console VM</span></div>
+        <pre class="term-body">briffaut login: <span class="cmd">user</span>
+Password: <span class="hint">user (invisible à la frappe)</span>
+
+<span class="prompt">user@briffaut ~ $</span> <span class="cmd">ip a</span>
+<span class="out">2: ens33: BROADCAST,MULTICAST,UP,LOWER_UP mtu 1500 ...
+    inet 192.168.106.139/24 brd 192.168.106.255 scope global dynamic ens33</span></pre>
+      </div>
+      <div class="bubble">
+        <span class="lbl">POURQUOI `ip a` ?</span>
+        <p>On a besoin de l'adresse IP de la VM pour s'y connecter en SSH depuis Windows plutôt que de rester coincé dans la fenêtre console de VMware (où le copier-coller ne fonctionne pas). <code>ip a</code> liste les interfaces réseau ; on ignore <code>lo</code> (127.0.0.1, la boucle locale) et on repère l'adresse <code>inet</code> de <code>ens33</code>, l'interface réseau réelle de la VM.</p>
+      </div>
+
+      <h3 class="q"><span class="qlabel">ÉTAPE</span>Connexion SSH depuis PowerShell</h3>
+      <div class="term">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">PowerShell (Windows)</span></div>
+        <pre class="term-body"><span class="prompt">PS C:\Users\jamai&gt;</span> <span class="cmd">ssh user@192.168.106.139</span>
+<span class="out">The authenticity of host '192.168.106.139' can't be established.
+ED25519 key fingerprint is SHA256:MFQgS+mSCLMUGDet/kXiu/umurKp10iUXWXSiwualZ4.
+Are you sure you want to continue connecting (yes/no/[fingerprint])?</span> <span class="cmd">yes</span>
+<span class="out">Warning: Permanently added '192.168.106.139' (ED25519) to the list of known hosts.</span>
+Password: <span class="hint">user</span>
+<span class="ok">user@briffaut ~ $</span></pre>
+      </div>
+      <div class="bubble">
+        <span class="lbl">POURQUOI SSH PLUTÔT QUE LA CONSOLE VMWARE ?</span>
+        <p>Windows 10/11 embarque un client SSH natif dans PowerShell — pas besoin d'installer PuTTY. La question de l'authenticité de l'hôte n'apparaît qu'une fois : SSH n'a jamais vu cette machine, il affiche l'empreinte de sa clé publique pour qu'on la valide avant de la mémoriser (<code>known_hosts</code>). L'intérêt principal ici : chaque fenêtre PowerShell devient un terminal indépendant, ce qui est indispensable dès qu'un exercice demande <strong>deux sessions en parallèle</strong> (voir la section permissif/enforcing plus bas).</p>
+      </div>
+    </section>
+
+    <section id="identites">
+      <h2>02 · Identités et rôles SELinux</h2>
+      <p class="dek">Avant de lire le moindre contexte, il faut connaître le vocabulaire que la politique <code>strict</code> utilise par défaut.</p>
+      <table class="map">
+        <thead><tr><th class="mono">Identité</th><th class="mono">Rôles</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="mono"><span class="ctx"><span class="id">system_u</span></span></td><td class="mono"><span class="ctx"><span class="role">system_r</span></span></td><td>Processus systèmes (non-interactifs). Jamais utilisée pour un utilisateur humain.</td></tr>
+          <tr><td class="mono"><span class="ctx"><span class="id">user_u</span></span></td><td class="mono"><span class="ctx"><span class="role">user_r</span></span></td><td>Utilisateur générique sans privilège. C'est le mapping par défaut (<code>__default__</code>).</td></tr>
+          <tr><td class="mono"><span class="ctx"><span class="id">staff_u</span></span></td><td class="mono"><span class="ctx"><span class="role">staff_r</span></span>, <span class="ctx"><span class="role">sysadm_r</span></span></td><td>Administrateurs qui font aussi des activités « normales » d'utilisateur.</td></tr>
+          <tr><td class="mono"><span class="ctx"><span class="id">sysadm_u</span></span></td><td class="mono"><span class="ctx"><span class="role">sysadm_r</span></span></td><td>Administrateurs qui ne font que de l'administration système. Déconseillée en usage courant.</td></tr>
+          <tr><td class="mono"><span class="ctx"><span class="id">root</span></span></td><td class="mono"><span class="ctx"><span class="role">staff_r</span></span>, <span class="ctx"><span class="role">sysadm_r</span></span></td><td>Identité spéciale de root. Démarre en <code>staff_r</code>, doit explicitement basculer en <code>sysadm_r</code>.</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <span class="lbl">POINT CLÉ À RETENIR</span>
+        <p>Root <strong>n'est pas automatiquement administrateur SELinux</strong>. Il a accès aux deux rôles <code>staff_r</code> et <code>sysadm_r</code>, mais démarre par défaut en <code>staff_r</code> — un rôle « utilisateur avancé », pas encore le rôle qui autorise la gestion de la politique. C'est exactement ce qu'on observe à la section 05.</p>
+      </div>
+    </section>
+
+    <section id="q1">
+      <h2>03 · Contextes objets <span class="tag">Q1</span></h2>
+      <p class="dek">Un contexte <em>objet</em> décrit un fichier, un répertoire ou tout autre élément passif du système — pas un processus.</p>
+
+      <div class="term">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">SSH — <b>user</b> (session standard)</span></div>
+        <pre class="term-body"><span class="prompt">user@briffaut ~ $</span> <span class="cmd">ls -Z /</span>
+<span class="out">   system_u:object_r:bin_t bin
+  system_u:object_r:boot_t boot
+system_u:object_r:device_t dev
+   system_u:object_r:etc_t etc
+system_u:object_r:home_root_t home
+   system_u:object_r:lib_t lib
+   system_u:object_r:lib_t lib64
+system_u:object_r:usr_t opt
+  system_u:object_r:proc_t proc
+root:object_r:user_home_dir_t root
+system_u:object_r:var_run_t run
+   system_u:object_r:bin_t sbin
+ system_u:object_r:sysfs_t sys
+   system_u:object_r:tmp_t tmp
+   system_u:object_r:usr_t usr
+   system_u:object_r:var_t var</span>  <span class="hint">(sortie tronquée)</span>
+
+<span class="prompt">user@briffaut ~ $</span> <span class="cmd">ls -Z /root</span>
+<span class="deny">ls: impossible d'ouvrir le répertoire '/root': Permission non accordée</span>
+
+<span class="prompt">user@briffaut ~ $</span> <span class="cmd">ls -Z /etc/shadow /etc/passwd</span>
+<span class="out">system_u:object_r:shadow_t /etc/shadow
+   system_u:object_r:etc_t /etc/passwd</span>
+
+<span class="prompt">user@briffaut ~ $</span> <span class="cmd">ls -Z /bin/login</span>
+<span class="out">system_u:object_r:login_exec_t /bin/login</span></pre>
+      </div>
+
+      <div class="bubble">
+        <span class="lbl">POURQUOI `ls -Z` ?</span>
+        <p>L'option <code>-Z</code> demande à <code>ls</code> d'afficher, en plus du nom de fichier, son <strong>contexte objet</strong> : <span class="ctx"><span class="id">identité</span>:<span class="role">object_r</span>:<span class="type">type</span></span>. Le rôle est presque toujours figé à <code>object_r</code> pour un objet (les rôles servent à contrôler des <em>processus</em>, pas des fichiers) — c'est le champ <strong>type</strong> qui porte toute l'information utile : c'est lui que la politique consulte pour décider si tel processus peut lire, écrire ou exécuter ce fichier.</p>
+      </div>
+      <div class="bubble">
+        <span class="lbl">À NOTER : `/root` refusé</span>
+        <p>Le refus sur <code>/root</code> n'a rien à voir avec SELinux ici — c'est un simple droit Unix classique (répertoire personnel de root, non accessible en lecture à un autre utilisateur). Bon réflexe à garder : <strong>toujours se demander si un refus vient des droits Unix (DAC) ou de SELinux (MAC)</strong> avant de chercher une explication compliquée — on retombera exactement sur ce piège un peu plus loin.</p>
+      </div>
+
+      <h3 class="q"><span class="qlabel">Q1</span>Quel est le contexte associé à chacun de ces éléments ?</h3>
+      <table class="map">
+        <thead><tr><th>Élément</th><th class="mono">Contexte objet</th></tr></thead>
+        <tbody>
+          <tr><td><code>/etc/shadow</code></td><td class="mono"><span class="ctx"><span class="id">system_u</span>:<span class="role">object_r</span>:<span class="type">shadow_t</span></span></td></tr>
+          <tr><td><code>/etc/passwd</code></td><td class="mono"><span class="ctx"><span class="id">system_u</span>:<span class="role">object_r</span>:<span class="type">etc_t</span></span></td></tr>
+          <tr><td>programmes de <code>/bin</code></td><td class="mono"><span class="ctx"><span class="id">system_u</span>:<span class="role">object_r</span>:<span class="type">bin_t</span></span></td></tr>
+          <tr><td><code>/bin/login</code></td><td class="mono"><span class="ctx"><span class="id">system_u</span>:<span class="role">object_r</span>:<span class="type">login_exec_t</span></span></td></tr>
+        </tbody>
+      </table>
+      <div class="answer"><span class="lbl">À NOTER</span>&nbsp;<code>/etc/passwd</code> n'a pas de type dédié comme <code>/etc/shadow</code> — il reste dans le type générique <code>etc_t</code>. C'est cohérent avec la sensibilité relative des deux fichiers : <code>shadow</code> contient les hachages de mots de passe, <code>passwd</code> non.</div>
+    </section>
+
+    <section id="q2">
+      <h2>04 · Contextes sujets <span class="tag">Q2</span></h2>
+      <p class="dek">Un contexte <em>sujet</em> décrit un processus en cours d'exécution — c'est lui qui « agit », donc son rôle compte vraiment (contrairement aux objets).</p>
+
+      <div class="term">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">SSH — <b>user</b></span></div>
+        <pre class="term-body"><span class="prompt">user@briffaut ~ $</span> <span class="cmd">ps auxZ</span>
+<span class="out">LABEL                        USER   PID  COMMAND
+system_u:system_r:init_t     root     1  init [3]
+system_u:system_r:kernel_t   root     2  [kthreadd]
+system_u:system_r:kernel_t   root     3  [rcu_gp]</span>  <span class="hint">(... des dizaines de threads noyau ...)</span>
+<span class="out">system_u:system_r:udev_t     root   994  /lib/systemd/systemd-udevd
+system_u:system_r:syslogd_t  root  1805  /usr/sbin/syslogd -F -
+system_u:system_r:crond_t    root  1834  /usr/sbin/crond
+system_u:system_r:system_dbusd_t message+ 1865  /usr/bin/dbus-daemon
+system_u:system_r:dhcpc_t    root  1895  dhcpcd: [manager]
+system_u:system_r:systemd_logind_t root 1947  elogind-daemon
+system_u:system_r:sshd_t     root  2012  sshd: /usr/sbin/sshd -
+system_u:system_r:local_login_t root 2048  /bin/login -- <span class="hint">(tty1)</span>
+system_u:system_r:getty_t    root  2049  /sbin/agetty <span class="hint">(tty2..tty6)</span>
+staff_u:staff_r:staff_t      user  2087  -bash <span class="hint">(session console)</span>
+system_u:system_r:sshd_t     root  2090  sshd: user [priv]
+system_u:system_r:sshd_t     user  2093  sshd: user@pts/0
+staff_u:staff_r:staff_t      user  2094  -bash <span class="hint">(session SSH)</span>
+staff_u:staff_r:staff_t      user  2109  ps auxZ</span>
+
+<span class="prompt">user@briffaut ~ $</span> <span class="cmd">id -Z</span>
+<span class="ctx"><span class="id">staff_u</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span></pre>
+      </div>
+
+      <div class="bubble">
+        <span class="lbl">POURQUOI `ps auxZ` ET `id -Z` ?</span>
+        <p><code>ps auxZ</code> ajoute la colonne <code>LABEL</code> (contexte sujet) à la liste des processus — utile pour comparer des familles entières de processus d'un coup d'œil. <code>id -Z</code> affiche uniquement le contexte du shell courant, plus rapide quand on veut juste vérifier <em>sa propre</em> session (ce qu'on va faire en boucle dans la suite du TD).</p>
+      </div>
+      <div class="note">
+        <span class="lbl">CORRECTION EN COURS DE ROUTE</span>
+        <p>Une hypothèse initiale plaçait le compte <code>user</code> sous l'identité <code>user_u</code> (le mapping « générique » par défaut décrit dans le tableau des identités). La sortie réelle de <code>id -Z</code> montre <span class="ctx"><span class="id">staff_u</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span> : sur <strong>cette image précise</strong>, le compte <code>user</code> est explicitement mappé sur <code>staff_u</code>. Ça illustre bien l'esprit du TD : la table des identités donne les <em>possibilités</em> par défaut de la politique, mais le mapping réel (<code>semanage login -l</code>, vu plus loin) peut avoir été personnalisé — <strong>on vérifie toujours, on ne suppose jamais</strong>.</p>
+      </div>
+
+      <h3 class="q"><span class="qlabel">Q2</span>Quel est le contexte associé à chacun de ces éléments ?</h3>
+      <table class="map">
+        <thead><tr><th>Élément</th><th class="mono">Contexte sujet</th></tr></thead>
+        <tbody>
+          <tr><td>votre session (SSH, <code>user</code>)</td><td class="mono"><span class="ctx"><span class="id">staff_u</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span></td></tr>
+          <tr><td>processus noyau</td><td class="mono"><span class="ctx"><span class="id">system_u</span>:<span class="role">system_r</span>:<span class="type">kernel_t</span></span></td></tr>
+          <tr><td>processus <code>sysklogd</code></td><td class="mono"><span class="ctx"><span class="id">system_u</span>:<span class="role">system_r</span>:<span class="type">syslogd_t</span></span></td></tr>
+          <tr><td>processus <code>login</code> (tty1)</td><td class="mono"><span class="ctx"><span class="id">system_u</span>:<span class="role">system_r</span>:<span class="type">local_login_t</span></span></td></tr>
+        </tbody>
+      </table>
+      <div class="answer"><span class="lbl">BONUS OBSERVÉ</span>&nbsp;la session ouverte <em>via SSH</em> tourne sous <code>sshd_t</code> pendant l'authentification, puis bascule en <code>staff_t</code> pour le shell — alors que le login <em>console</em> passe par <code>local_login_t</code>. Deux chemins d'authentification, deux contextes différents, même utilisateur final.</div>
+    </section>
+
+    <section id="roles-status">
+      <h2>05 · Changement de rôle et statut de la politique <span class="tag">Q3 – Q5</span></h2>
+      <p class="dek">On se reconnecte en root pour observer le rôle par défaut, puis on bascule explicitement en administrateur SELinux.</p>
+
+      <div class="term">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">SSH — <b>root</b></span></div>
+        <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">id -Z</span>
+<span class="ctx"><span class="id">root</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span>
+
+<span class="prompt">briffaut ~ #</span> <span class="cmd">newrole -r sysadm_r</span>
+Mot de passe : <span class="hint">azerty</span>
+
+<span class="prompt">briffaut ~ #</span> <span class="cmd">id -Z</span>
+<span class="ctx"><span class="id">root</span>:<span class="role">sysadm_r</span>:<span class="type">sysadm_t</span></span></pre>
+      </div>
+      <div class="bubble">
+        <span class="lbl">POURQUOI `newrole` ET PAS UN SIMPLE `su` ?</span>
+        <p><code>su</code>/<code>sudo</code> changent l'<strong>identité Unix</strong> (uid) ; <code>newrole -r</code> change le <strong>rôle SELinux</strong> du shell courant, en gardant la même identité. C'est exactement pour ça que root démarre en <code>staff_r</code> : ça force explicitement à demander le rôle <code>sysadm_r</code> avant toute opération d'administration de la politique, plutôt que de l'avoir automatiquement dès le login. C'est une friction volontaire — un garde-fou.</p>
+      </div>
+
+      <h3 class="q"><span class="qlabel">Q3</span>Quel est le contexte associé à votre session (avant tout changement) ?</h3>
+      <div class="answer"><span class="lbl">RÉPONSE</span>&nbsp;<span class="ctx"><span class="id">root</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span></div>
+
+      <h3 class="q"><span class="qlabel">Q4</span>Quel rôle faut-il prendre pour devenir super-administrateur SELinux ?</h3>
+      <div class="answer"><span class="lbl">RÉPONSE</span>&nbsp;<code>sysadm_r</code></div>
+
+      <h3 class="q"><span class="qlabel">Q5a</span>Quel est le nouveau contexte après <code>newrole</code> ?</h3>
+      <div class="answer"><span class="lbl">RÉPONSE</span>&nbsp;<span class="ctx"><span class="id">root</span>:<span class="role">sysadm_r</span>:<span class="type">sysadm_t</span></span></div>
+
+      <div class="term">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">SSH — <b>root</b> (sysadm_r)</span></div>
+        <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">sestatus</span>
+<span class="out">SELinux status:                 enabled
+Loaded policy name:              strict
+Current mode:                    permissive
+Mode from config file:           permissive
+Policy MLS status:               disabled
+Policy deny_unknown status:      allowed</span>
+
+<span class="prompt">briffaut ~ #</span> <span class="cmd">setenforce 1</span>
+<span class="prompt">briffaut ~ #</span> <span class="cmd">sestatus</span>
+<span class="out">Current mode:                    </span><span class="deny">enforcing</span>
+<span class="out">Mode from config file:           permissive</span>
+
+<span class="prompt">briffaut ~ #</span> <span class="cmd">setenforce 0</span></pre>
+      </div>
+      <div class="bubble">
+        <span class="lbl">POURQUOI TESTER `setenforce` ICI ?</span>
+        <p>Ce test (non demandé littéralement par l'énoncé à cette étape, mais fait spontanément) montre une distinction importante : <strong>« mode courant »</strong> et <strong>« mode par défaut au démarrage »</strong> sont deux valeurs indépendantes. <code>setenforce</code> change uniquement le mode courant, en mémoire, jusqu'au prochain redémarrage — le fichier <code>/etc/selinux/config</code> (qui fixe le mode par défaut) n'est jamais modifié par cette commande.</p>
+      </div>
+
+      <h3 class="q"><span class="qlabel">Q5b</span>Status, type, mode par défaut, mode courant — que signifient-ils ?</h3>
+      <table class="map">
+        <thead><tr><th>Champ</th><th>Valeur relevée</th><th>Signification</th></tr></thead>
+        <tbody>
+          <tr><td>Status</td><td class="mono">enabled</td><td>SELinux est chargé et actif dans le noyau.</td></tr>
+          <tr><td>Type (policy)</td><td class="mono">strict</td><td>Politique la plus restrictive de refpolicy : <em>tout</em> processus est confiné, aucun type « unconfined » par défaut.</td></tr>
+          <tr><td>Mode par défaut</td><td class="mono">permissive</td><td>Ce que <code>/etc/selinux/config</code> applique à chaque démarrage.</td></tr>
+          <tr><td>Mode courant</td><td class="mono">permissive</td><td>Ce qui est réellement actif en mémoire à l'instant présent (modifiable à chaud avec <code>setenforce</code>).</td></tr>
+        </tbody>
+      </table>
+      <div class="answer"><span class="lbl">À NOTER</span>&nbsp;le système tourne en <strong>permissif</strong> par défaut : SELinux évalue toutes les règles et journalise les refus, mais ne bloque jamais rien. Utile en développement/formation, dangereux en production.</div>
+    </section>
+
+    <section id="permissif">
+      <h2>06 · Permissif vs enforcing, à deux terminaux <span class="tag">Q5 — test pratique</span></h2>
+      <p class="dek">Le but : observer concrètement la différence entre « SELinux journalise » et « SELinux bloque », avec deux sessions ouvertes en même temps.</p>
+
+      <div class="note">
+        <span class="lbl">⚠ ERREUR DE PARCOURS INSTRUCTIVE</span>
+        <p>Première tentative : TERM_B ouvert avec le compte <code>user</code> (non-root), puis <code>cat /etc/shadow</code> → <code>Permission non accordée</code>. Ce refus n'a <strong>rien à voir avec SELinux</strong> : <code>/etc/shadow</code> est lisible uniquement par root au niveau des droits Unix classiques (DAC), donc un utilisateur normal est bloqué <em>avant même</em> que SELinux n'intervienne. Le test du TD n'a de sens qu'en comparant <strong>deux sessions root</strong> — ainsi les droits Unix laissent passer, et c'est vraiment SELinux (MAC) qui décide seul du résultat.</p>
+      </div>
+
+      <p>TERM_B corrigé : une nouvelle connexion SSH en root.</p>
+      <div class="term">
+        <div class="term-bar"><span class="dot y"></span><span class="term-title">TERM_B — <b>root</b> (nouvelle session)</span></div>
+        <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">id -Z</span>
+<span class="ctx"><span class="id">root</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span></pre>
+      </div>
+      <div class="bubble">
+        <span class="lbl">POURQUOI CE CONTEXTE, ET PAS `sysadm_r` ?</span>
+        <p>Ça confirme un point essentiel du TD : <code>newrole</code> ne change le rôle que du <strong>processus shell qui l'a exécuté</strong> — pas de l'identité root en général. Une toute nouvelle connexion SSH démarre un nouveau shell, qui repart du rôle par défaut (<code>staff_r</code>), même si un autre terminal de la même identité root est actuellement en <code>sysadm_r</code>. Le changement de rôle ne se propage jamais aux autres sessions.</p>
+      </div>
+
+      <div class="term-pair">
+        <div class="term">
+          <div class="term-bar"><span class="dot g"></span><span class="term-title">TERM_A — <b>sysadm_r</b> (contrôle)</span></div>
+          <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">setenforce 0</span>
+<span class="hint">→ repasse en mode permissif</span></pre>
+        </div>
+        <div class="term">
+          <div class="term-bar"><span class="dot y"></span><span class="term-title">TERM_B — <b>staff_r</b> (testé)</span></div>
+          <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">cat /etc/shadow</span>
+<span class="ok">→ lecture réussie</span> <span class="hint">(confirmé)</span></pre>
+        </div>
+      </div>
+      <div class="bubble">
+        <span class="lbl">POURQUOI ÇA PASSE ALORS QUE LE TYPE NE CORRESPOND PAS ?</span>
+        <p>En mode permissif, SELinux <strong>évalue</strong> quand même la règle (et aurait dit non), mais <strong>n'applique pas</strong> le refus — il se contente de le journaliser (section suivante). Les droits Unix, eux, passent puisque TERM_B est aussi root. Résultat : la lecture réussit malgré l'absence de règle <code>allow</code> entre <code>staff_t</code> et <code>shadow_t</code>.</p>
+      </div>
+
+      <div class="term-pair">
+        <div class="term">
+          <div class="term-bar"><span class="dot g"></span><span class="term-title">TERM_A — <b>sysadm_r</b></span></div>
+          <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">setenforce 1</span>
+<span class="hint">→ repasse en mode enforcing</span></pre>
+        </div>
+        <div class="term">
+          <div class="term-bar"><span class="dot y"></span><span class="term-title">TERM_B — <b>staff_r</b></span></div>
+          <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">cat /etc/shadow</span>
+<span class="deny">→ Permission denied (attendu)</span> <span class="status-pending">à reconfirmer</span></pre>
+        </div>
+      </div>
+      <div class="note">
+        <span class="lbl">À REFAIRE / CONFIRMER</span>
+        <p>Cette dernière étape (bascule en <code>enforcing</code> puis nouvelle tentative de lecture) a été enchaînée sans coller la sortie exacte du terminal. Le comportement attendu — un <code>Permission denied</code> franc, cette fois réellement bloqué — reste <strong>à vérifier explicitement</strong> avant de conclure le test, pour avoir une preuve écrite comparable à celle du mode permissif.</p>
+      </div>
+    </section>
+
+    <section id="traces">
+      <h2>07 · Lire une trace AVC dans `dmesg` <span class="tag">Q5 — traces</span></h2>
+      <p class="dek">Un refus SELinux, même en permissif, laisse une trace exploitable dans les logs noyau — c'est l'outil de diagnostic principal.</p>
+
+      <div class="term">
+        <div class="term-bar"><span class="dot g"></span><span class="term-title">TERM_A — <b>sysadm_r</b></span></div>
+        <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">setenforce 0</span>
+<span class="prompt">briffaut ~ #</span> <span class="cmd">dmesg -c</span>
+<span class="hint">→ vide le tampon de traces noyau pour repartir propre</span></pre>
+      </div>
+
+      <div class="term">
+        <div class="term-bar"><span class="dot y"></span><span class="term-title">TERM_B — <b>staff_r</b></span></div>
+        <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">cat /etc/ssh/ssh_host_key</span>
+<span class="deny">cat: /etc/ssh/ssh_host_key: Aucun fichier ou dossier de ce type</span>
+
+<span class="prompt">briffaut ~ #</span> <span class="cmd">ls -Z /etc/ssh/*key*</span>
+<span class="out">system_u:object_r:sshd_key_t /etc/ssh/ssh_host_ecdsa_key
+system_u:object_r:sshd_key_t /etc/ssh/ssh_host_ecdsa_key.pub
+system_u:object_r:sshd_key_t /etc/ssh/ssh_host_ed25519_key
+system_u:object_r:sshd_key_t /etc/ssh/ssh_host_ed25519_key.pub
+system_u:object_r:sshd_key_t /etc/ssh/ssh_host_rsa_key
+system_u:object_r:sshd_key_t /etc/ssh/ssh_host_rsa_key.pub</span>
+
+<span class="prompt">briffaut ~ #</span> <span class="cmd">cat /etc/ssh/ssh_host_ed25519_key</span></pre>
+      </div>
+      <div class="bubble">
+        <span class="lbl">POURQUOI `ssh_host_key` N'EXISTAIT PAS ?</span>
+        <p>Le TD a été écrit à une époque où SSH ne générait qu'une seule clé d'hôte, de type RSA, littéralement nommée <code>ssh_host_key</code>. Les versions modernes d'OpenSSH génèrent plusieurs types de clés en parallèle (RSA, ECDSA, Ed25519) avec des noms explicites. <code>ls -Z /etc/ssh/*key*</code> permet de retrouver le fichier équivalent aujourd'hui — et confirme au passage que <strong>tous</strong> les fichiers de clés d'hôte SSH partagent le même type <code>sshd_key_t</code>, peu importe l'algorithme.</p>
+      </div>
+
+      <div class="term">
+        <div class="term-bar"><span class="dot g"></span><span class="term-title">TERM_A — <b>sysadm_r</b></span></div>
+        <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">dmesg</span>
+<span class="deny">audit: type=1400 avc:  denied  { read } for  pid=2210 comm="cat"
+  name="ssh_host_ed25519_key" dev="sda2" ino=141611
+  scontext=<span class="ctx"><span class="id">root</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span> tcontext=<span class="ctx"><span class="id">system_u</span>:<span class="role">object_r</span>:<span class="type">sshd_key_t</span></span>
+  tclass=file permissive=1
+audit: type=1400 avc:  denied  { open } for  pid=2210 comm="cat"
+  path="/etc/ssh/ssh_host_ed25519_key" dev="sda2" ino=141611
+  scontext=<span class="ctx"><span class="id">root</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span> tcontext=<span class="ctx"><span class="id">system_u</span>:<span class="role">object_r</span>:<span class="type">sshd_key_t</span></span>
+  tclass=file permissive=1</span></pre>
+      </div>
+
+      <h3 class="q"><span class="qlabel">Lecture</span>Décomposition de la trace</h3>
+      <table class="map">
+        <thead><tr><th class="mono">Champ</th><th>Sens</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">avc: denied</td><td>SELinux a refusé cet accès (mais ne l'a pas bloqué, on est en permissif).</td></tr>
+          <tr><td class="mono">{ read }, { open }</td><td>Deux traces distinctes car <code>cat</code> effectue deux appels système différents pour lire un fichier.</td></tr>
+          <tr><td class="mono">comm="cat"</td><td>Le programme à l'origine de l'accès.</td></tr>
+          <tr><td class="mono">scontext=...</td><td>Contexte <strong>sujet</strong> : le processus qui demande l'accès (<span class="ctx"><span class="id">root</span>:<span class="role">staff_r</span>:<span class="type">staff_t</span></span>).</td></tr>
+          <tr><td class="mono">tcontext=...</td><td>Contexte <strong>objet</strong> cible : le fichier visé (<span class="ctx"><span class="id">system_u</span>:<span class="role">object_r</span>:<span class="type">sshd_key_t</span></span>).</td></tr>
+          <tr><td class="mono">tclass=file</td><td>Classe de l'objet cible (ici : fichier normal).</td></tr>
+          <tr><td class="mono">permissive=1</td><td>Confirme que le refus a été journalisé sans être appliqué.</td></tr>
+        </tbody>
+      </table>
+      <div class="answer"><span class="lbl">CONCLUSION</span>&nbsp;en enforcing, <code>staff_t</code> n'ayant aucune règle <code>allow</code> vers <code>sshd_key_t</code>, cette lecture aurait été bloquée — exactement le même mécanisme que pour <code>/etc/shadow</code> plus haut.</div>
+    </section>
+
+    <section id="suite">
+      <h2>08 · Où on en est <span class="tag">à suivre</span></h2>
+      <p class="dek">La partie 1.1 (prise en main) est terminée. La partie 1.2 (administration de la politique) démarre avec la question 6, en cours au moment de la rédaction de ce rapport.</p>
+      <div class="term">
+        <div class="term-bar"><span class="dot g"></span><span class="term-title">TERM_A — <b>sysadm_r</b> (prochaine commande)</span></div>
+        <pre class="term-body"><span class="prompt">briffaut ~ #</span> <span class="cmd">ls /usr/share/selinux/</span>
+<span class="prompt">briffaut ~ #</span> <span class="cmd">ls /usr/share/selinux/strict/ | head</span>
+<span class="status-pending">résultat pas encore obtenu</span></pre>
+      </div>
+      <div class="bubble">
+        <span class="lbl">CE QU'ON CHERCHE (Q6)</span>
+        <p>Identifier le format des modules de politique compilés stockés dans <code>/usr/share/selinux/&lt;type&gt;/</code> — la question porte sur l'<strong>extension de fichier</strong>, indice pour comprendre ce que produit réellement la compilation d'un module (voir la partie 2 du TD, écriture du module <code>clawsmail</code>).</p>
+      </div>
+      <ul>
+        <li>Q6 — format des modules dans <code>/usr/share/selinux/</code></li>
+        <li>Q7 — modules chargés (<code>semodule -l</code>)</li>
+        <li>Q8 — pourquoi <code>run_init</code> est nécessaire pour gérer un démon</li>
+        <li>Q9 à Q11 — gestion des identités avec <code>semanage login</code></li>
+        <li>Partie 2 — étude du module <code>mozilla</code>, puis écriture du module <code>clawsmail</code> (fichiers <code>.te</code>/<code>.fc</code>/<code>.if</code>)</li>
+      </ul>
+    </section>
+
+    <footer>
+      TD SELinux — Jérémy Briffaut · rapport généré au fil de la séance, section « suite » à mettre à jour au fur et à mesure.
+    </footer>
+  </main>
+</div>
+</body>
+</html>
