@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Compte rendu TP : maquette réseau routée sous Proxmox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F6FA; --paper:#FFFFFF; --ink:#0F1E33; --ink-2:#3A4A60; --line:#C9D3E0;
+  --accent:#1F46C8;
+  --net0:#5B6576; --net1:#1F46C8; --net2:#0B7A6E; --net3:#B0247A;
+  --info-bg:#E8EEFF; --info-bd:#1F46C8;
+  --warn-bg:#FFF3DC; --warn-bd:#B45309;
+  --tip-bg:#E1F5F1; --tip-bd:#0B7A6E;
+  --why-bg:#F1E9FF; --why-bd:#6D28D9;
+  --code-bg:#0F1E33; --code-ink:#E6EDF7; --code-cm:#8FA3BF;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1522; --paper:#131E30; --ink:#E7EDF6; --ink-2:#AEBBCD; --line:#2A3A52;
+    --accent:#7F9CFF;
+    --net0:#9AA4B5; --net1:#7F9CFF; --net2:#3FD1BC; --net3:#F07AC0;
+    --info-bg:#17264A; --info-bd:#7F9CFF;
+    --warn-bg:#3A2A10; --warn-bd:#F4B04A;
+    --tip-bg:#0F332E; --tip-bd:#3FD1BC;
+    --why-bg:#2A1A48; --why-bd:#B794FF;
+    --code-bg:#08101C; --code-ink:#E6EDF7; --code-cm:#7F92AE;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1522; --paper:#131E30; --ink:#E7EDF6; --ink-2:#AEBBCD; --line:#2A3A52;
+  --accent:#7F9CFF;
+  --net0:#9AA4B5; --net1:#7F9CFF; --net2:#3FD1BC; --net3:#F07AC0;
+  --info-bg:#17264A; --info-bd:#7F9CFF;
+  --warn-bg:#3A2A10; --warn-bd:#F4B04A;
+  --tip-bg:#0F332E; --tip-bd:#3FD1BC;
+  --why-bg:#2A1A48; --why-bd:#B794FF;
+  --code-bg:#08101C; --code-ink:#E6EDF7; --code-cm:#7F92AE;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px);scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.6}
+code,pre,kbd{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1240px;margin:0 auto;gap:40px;padding:0 24px}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr);gap:0;padding:0 16px}}
+
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;max-height:100vh;overflow:auto;padding:32px 0}
+@media (max-width:900px){nav.toc{position:static;max-height:none;padding:16px 0 0}}
+nav.toc h2{font-size:15px;margin:0 0 12px;color:var(--ink-2);font-weight:600}
+nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:t}
+nav.toc li{counter-increment:t}
+nav.toc a{display:flex;gap:10px;padding:5px 8px;border-radius:6px;text-decoration:none;color:var(--ink);font-size:14.5px;line-height:1.35}
+nav.toc a::before{content:counter(t);min-width:1.4em;color:var(--ink-2);font-variant-numeric:tabular-nums}
+nav.toc a:hover{background:var(--paper)}
+.legend{margin-top:24px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--paper);font-size:13.5px}
+.legend p{margin:0 0 8px;font-weight:600}
+.legend div{display:flex;align-items:center;gap:8px;margin:4px 0}
+.dot{width:12px;height:12px;border-radius:3px;flex:none}
+
+main{padding:40px 0 80px;min-width:0}
+header.hero{border-bottom:3px solid var(--ink);padding-bottom:28px;margin-bottom:36px}
+header.hero h1{font-size:clamp(30px,4.6vw,46px);line-height:1.08;margin:0 0 14px;letter-spacing:-0.02em;font-weight:700;max-width:22ch}
+header.hero p.sub{margin:0;color:var(--ink-2);font-size:18px;max-width:62ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:18px;font-size:14.5px;color:var(--ink-2)}
+.meta strong{color:var(--ink);font-weight:600}
+.netbar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin-top:22px;max-width:520px}
+.netbar span{flex:1}
+
+section{margin:0 0 56px}
+section>h2{font-size:28px;line-height:1.2;margin:0 0 6px;letter-spacing:-0.01em;display:flex;gap:14px;align-items:baseline}
+section>h2 .n{font-size:16px;font-weight:600;color:var(--paper);background:var(--ink);border-radius:6px;padding:2px 9px;flex:none;position:relative;top:-3px}
+h3{font-size:20px;margin:32px 0 8px}
+h4{font-size:17px;margin:22px 0 6px}
+p,ul,ol{max-width:74ch}
+li{margin:4px 0}
+.lead{font-size:18px;color:var(--ink-2)}
+
+.net{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.86em;font-weight:500;padding:1px 7px;border-radius:5px;border:1.5px solid currentColor;white-space:nowrap}
+.n0{color:var(--net0)}.n1{color:var(--net1)}.n2{color:var(--net2)}.n3{color:var(--net3)}
+:not(pre)>code{background:var(--paper);border:1px solid var(--line);padding:1px 5px;border-radius:4px;font-size:.88em}
+
+.callout{position:relative;margin:22px 0;padding:16px 18px 16px 54px;border-radius:10px;border:2px solid;max-width:78ch}
+.callout::before{position:absolute;left:16px;top:14px;font-size:22px;line-height:1}
+.callout .t{display:block;font-weight:700;margin-bottom:4px}
+.callout p,.callout ul{margin:6px 0}
+.callout.info{background:var(--info-bg);border-color:var(--info-bd)}.callout.info::before{content:"💬"}
+.callout.warn{background:var(--warn-bg);border-color:var(--warn-bd)}.callout.warn::before{content:"⚠️"}
+.callout.tip{background:var(--tip-bg);border-color:var(--tip-bd)}.callout.tip::before{content:"💡"}
+.callout.why{background:var(--why-bg);border-color:var(--why-bd)}.callout.why::before{content:"🧠"}
+.callout::after{content:"";position:absolute;left:28px;bottom:-11px;width:18px;height:18px;background:inherit;border-right:2px solid;border-bottom:2px solid;border-color:inherit;transform:rotate(45deg)}
+
+.codewrap{position:relative;margin:16px 0 22px}
+.codewrap .file{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:13px;background:var(--code-bg);color:var(--code-cm);padding:5px 12px;border-radius:8px 8px 0 0}
+pre.code{margin:0;background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:0 10px 10px 10px;overflow-x:auto;font-size:14.5px;line-height:1.55}
+.codewrap:not(:has(.file)) pre.code{border-radius:10px}
+pre.code .c{color:var(--code-cm)}
+.copy{position:absolute;right:8px;top:8px;font:500 12.5px "IBM Plex Sans",sans-serif;background:rgba(255,255,255,.1);color:var(--code-ink);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:4px 10px;cursor:pointer}
+.codewrap:has(.file) .copy{top:36px}
+.copy:hover{background:rgba(255,255,255,.2)}
+
+.diagram{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px;margin:20px 0;overflow-x:auto}
+.diagram .cap{font-size:14px;color:var(--ink-2);margin:10px 0 0}
+pre.mermaid{margin:0;background:transparent;text-align:center}
+
+.tablewrap{overflow-x:auto;margin:16px 0 22px;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;background:var(--bg)}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+
+.check{list-style:none;padding:0}
+.check li{padding-left:30px;position:relative}
+.check li::before{content:"✔";position:absolute;left:4px;color:var(--net2);font-weight:700}
+
+.themebtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));font:500 13px "IBM Plex Sans",sans-serif;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:20px;padding:8px 14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+footer{border-top:1px solid var(--line);padding-top:18px;color:var(--ink-2);font-size:14px}
+@media print{nav.toc,.copy,.themebtn{display:none}.layout{display:block}}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Sommaire">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#contexte">Contexte et consignes</a></li>
+    <li><a href="#topologie">Topologie cible</a></li>
+    <li><a href="#adressage">Plan d'adressage</a></li>
+    <li><a href="#bridges">Bridges Proxmox</a></li>
+    <li><a href="#vms">Création des conteneurs</a></li>
+    <li><a href="#interfaces">Adressage de la box</a></li>
+    <li><a href="#routage">Routage et IP forwarding</a></li>
+    <li><a href="#nat">NAT et masquerade</a></li>
+    <li><a href="#dhcp">Service DHCP</a></li>
+    <li><a href="#dns">Service DNS</a></li>
+    <li><a href="#clients">Configuration des clients</a></li>
+    <li><a href="#tests">Tests et validation</a></li>
+    <li><a href="#depannage">Incidents et dépannage</a></li>
+    <li><a href="#plus-loin">Limites et améliorations</a></li>
+    <li><a href="#glossaire">Glossaire</a></li>
+  </ol>
+  <div class="legend">
+    <p>Code couleur des réseaux</p>
+    <div><span class="dot" style="background:var(--net0)"></span>vmbr0 · réseau école / WAN</div>
+    <div><span class="dot" style="background:var(--net1)"></span>vmbr1 · 10.0.0.0/24</div>
+    <div><span class="dot" style="background:var(--net2)"></span>vmbr2 · 10.10.2.0/24</div>
+    <div><span class="dot" style="background:var(--net3)"></span>vmbr3 · 10.10.3.0/24</div>
+  </div>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>Maquette réseau routée sous Proxmox</h1>
+  <p class="sub">Compte rendu de TP : une box Debian 13 en conteneur LXC qui route deux réseaux clients vers un pare-feu OPNsense, avec adressage statique, IP forwarding, masquerade NAT, DHCP et DNS.</p>
+  <div class="meta">
+    <span><strong>Auteur</strong> Ali, 3A STI, INSA Centre Val de Loire</span>
+    <span><strong>Plateforme</strong> Proxmox VE (nœud sti-4a-fise-02-08), OPNsense, conteneurs LXC Debian 13</span>
+    <span><strong>Services</strong> nftables, dnsmasq</span>
+  </div>
+  <div class="netbar" aria-hidden="true"><span style="background:var(--net0)"></span><span style="background:var(--net1)"></span><span style="background:var(--net2)"></span><span style="background:var(--net3)"></span></div>
+</header>
+
+<!-- 1 -->
+<section id="contexte">
+  <h2><span class="n">1</span>Contexte et consignes</h2>
+  <p class="lead">L'objectif est de reproduire sur Proxmox la maquette dessinée au tableau : un routeur Linux (la « box ») qui relie deux réseaux clients isolés au réseau LAN d'un pare-feu OPNsense, lui-même connecté au réseau de l'école.</p>
+  <p>Les consignes données en séance, dans l'ordre :</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Consigne</th><th>Ce qui a été fait</th><th>Section</th></tr></thead>
+    <tbody>
+      <tr><td>Se connecter au Proxmox (identifiants INSA CVL)</td><td>Accès à l'interface web Proxmox via le nom d'hôte fourni</td><td>—</td></tr>
+      <tr><td>Démarrer OPNsense</td><td>VM OPNsense démarrée en premier, elle fournit DHCP et DNS sur <span class="net n1">vmbr1</span></td><td>2</td></tr>
+      <tr><td>Entrer dans le Proxmox (identifiants de la feuille)</td><td>Connexion au compte du groupe</td><td>—</td></tr>
+      <tr><td>Récupérer le template Debian 13 sur le NFS</td><td>Template utilisé comme base de clonage</td><td>5</td></tr>
+      <tr><td>En créer 3 copies</td><td>Trois conteneurs LXC : <code>box</code> (CT 100), <code>client2</code> (CT 101), <code>client3</code> (CT 102)</td><td>5</td></tr>
+      <tr><td>Reproduire la maquette</td><td>Bridges <span class="net n2">vmbr2</span>, <span class="net n3">vmbr3</span> et cartes réseau branchées</td><td>4, 5</td></tr>
+      <tr><td>Adressage statique vmbr2 / vmbr3 + IP forwarding + masquerade</td><td>Box en 10.10.2.1 et 10.10.3.1, routage activé, NAT nftables</td><td>6, 7, 8</td></tr>
+      <tr><td>Installer les services</td><td>dnsmasq : DHCP et DNS pour les deux réseaux clients</td><td>9, 10</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout info">
+    <span class="t">Environnement réel constaté pendant le TP</span>
+    <ul>
+      <li>Les trois machines Debian sont des <strong>conteneurs LXC</strong>, pas des VM : leurs interfaces s'appellent <code>eth0</code>, <code>eth1</code>, <code>eth2</code>.</li>
+      <li>L'OPNsense est la passerelle de <span class="net n1">vmbr1</span> en <code>10.0.0.254</code> ; il a attribué <code>10.0.0.137</code> à la box.</li>
+      <li>Le réseau de <span class="net n3">vmbr3</span> est bien 10.10.3.0/24.</li>
+      <li>Baux obtenus : client2 en <code>10.10.2.131</code>, client3 en <code>10.10.3.114</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="topologie">
+  <h2><span class="n">2</span>Topologie cible</h2>
+  <p>La maquette comporte quatre réseaux (un par bridge Proxmox) et quatre machines. Chaque machine qui touche plusieurs réseaux possède une carte réseau par réseau.</p>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  NET0["vmbr0&lt;br/&gt;réseau école / Internet"]
+  OPN["OPNsense&lt;br/&gt;pare-feu + NAT&lt;br/&gt;DHCP + DNS&lt;br/&gt;LAN 10.0.0.254"]
+  NET1["vmbr1&lt;br/&gt;10.0.0.0/24"]
+  BOX["box - LXC Debian 13&lt;br/&gt;eth0 DHCP 10.0.0.137&lt;br/&gt;eth1 10.10.2.1&lt;br/&gt;eth2 10.10.3.1&lt;br/&gt;routage + NAT + DHCP + DNS"]
+  NET2["vmbr2&lt;br/&gt;10.10.2.0/24"]
+  NET3["vmbr3&lt;br/&gt;10.10.3.0/24"]
+  C2["client2&lt;br/&gt;DHCP 10.10.2.131"]
+  C3["client3&lt;br/&gt;DHCP 10.10.3.114"]
+  NET0 --- OPN
+  OPN --- NET1
+  NET1 --- BOX
+  BOX --- NET2
+  BOX --- NET3
+  NET2 --- C2
+  NET3 --- C3
+  classDef n0 fill:#5B6576,stroke:#5B6576,color:#fff
+  classDef n1 fill:#1F46C8,stroke:#1F46C8,color:#fff
+  classDef n2 fill:#0B7A6E,stroke:#0B7A6E,color:#fff
+  classDef n3 fill:#B0247A,stroke:#B0247A,color:#fff
+  classDef vm fill:#FFFFFF,stroke:#0F1E33,stroke-width:2px,color:#0F1E33
+  class NET0 n0
+  class NET1 n1
+  class NET2 n2
+  class NET3 n3
+  class OPN,BOX,C2,C3 vm
+</pre>
+    <p class="cap">Topologie logique. Les bridges (en couleur) sont les « switchs virtuels », les machines (en blanc) s'y branchent.</p>
+  </div>
+  <div class="callout why">
+    <span class="t">Pourquoi deux routeurs empilés ?</span>
+    <p>OPNsense joue le rôle du pare-feu d'entreprise : il fait la frontière avec le réseau de l'école. La box joue le rôle d'un routeur interne qui segmente les postes clients en deux réseaux distincts. Cette architecture en couches est courante : un pare-feu périmétrique, puis des routeurs ou switchs L3 qui découpent le réseau interne en sous-réseaux.</p>
+  </div>
+  <p>Répartition des rôles :</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Machine</th><th>Réseaux</th><th>Rôle</th></tr></thead>
+    <tbody>
+      <tr><td><strong>OPNsense</strong></td><td><span class="net n0">vmbr0</span> <span class="net n1">vmbr1</span></td><td>Pare-feu, NAT vers l'extérieur, serveur DHCP et DNS pour 10.0.0.0/24</td></tr>
+      <tr><td><strong>box</strong></td><td><span class="net n1">vmbr1</span> <span class="net n2">vmbr2</span> <span class="net n3">vmbr3</span></td><td>Routeur + NAT (masquerade), serveur DHCP et DNS pour les deux réseaux clients</td></tr>
+      <tr><td><strong>client2</strong></td><td><span class="net n2">vmbr2</span></td><td>Poste client, adresse obtenue par DHCP</td></tr>
+      <tr><td><strong>client3</strong></td><td><span class="net n3">vmbr3</span></td><td>Poste client, adresse obtenue par DHCP</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 3 -->
+<section id="adressage">
+  <h2><span class="n">3</span>Plan d'adressage</h2>
+  <p>Chaque réseau est un <strong>/24</strong> : les 24 premiers bits identifient le réseau, les 8 derniers identifient la machine. Cela donne 256 adresses dont 254 utilisables (la première est l'adresse du réseau, la dernière l'adresse de broadcast).</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Réseau</th><th>Adresse réseau</th><th>Masque</th><th>Passerelle</th><th>Plage DHCP</th><th>Broadcast</th></tr></thead>
+    <tbody>
+      <tr><td><span class="net n1">vmbr1</span></td><td><code>10.0.0.0/24</code></td><td><code>255.255.255.0</code></td><td><code>10.0.0.254</code> (OPNsense)</td><td>Gérée par OPNsense</td><td><code>10.0.0.255</code></td></tr>
+      <tr><td><span class="net n2">vmbr2</span></td><td><code>10.10.2.0/24</code></td><td><code>255.255.255.0</code></td><td><code>10.10.2.1</code> (box)</td><td><code>10.10.2.100 – .200</code></td><td><code>10.10.2.255</code></td></tr>
+      <tr><td><span class="net n3">vmbr3</span></td><td><code>10.10.3.0/24</code></td><td><code>255.255.255.0</code></td><td><code>10.10.3.1</code> (box)</td><td><code>10.10.3.100 – .200</code></td><td><code>10.10.3.255</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout info">
+    <span class="t">Conventions de ce plan</span>
+    <ul>
+      <li>Sur les réseaux clients, la passerelle prend l'adresse <code>.1</code>. Sur <span class="net n1">vmbr1</span>, l'OPNsense utilise <code>.254</code> : les deux conventions (première ou dernière adresse) sont courantes, l'important est que la passerelle soit fixe et connue.</li>
+      <li>La plage DHCP commence à <code>.100</code> : les adresses <code>.2</code> à <code>.99</code> restent libres pour d'éventuels serveurs en IP fixe, sans risque de conflit avec un bail DHCP.</li>
+      <li>Tous ces réseaux sont dans <code>10.0.0.0/8</code>, une plage privée (RFC 1918). Elle n'est pas routable sur Internet, d'où le besoin de NAT.</li>
+    </ul>
+  </div>
+  <div class="callout why">
+    <span class="t">Pourquoi la box a une IP statique côté clients et DHCP côté OPNsense ?</span>
+    <p>Côté <span class="net n2">vmbr2</span> et <span class="net n3">vmbr3</span>, la box <em>est</em> la passerelle et le serveur DHCP : son adresse doit être fixe et connue, sinon les clients ne sauraient pas où envoyer leurs paquets. Côté <span class="net n1">vmbr1</span>, la box est un simple client de l'OPNsense, son adresse peut donc être distribuée par DHCP. En production on lui fixerait plutôt une réservation DHCP ou une IP statique pour pouvoir créer des routes vers elle.</p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="bridges">
+  <h2><span class="n">4</span>Bridges Proxmox</h2>
+  <p>Un <strong>Linux bridge</strong> (<code>vmbrX</code>) est un switch virtuel dans le noyau de l'hyperviseur. Chaque carte réseau virtuelle d'une machine (VM ou conteneur) est un port branché sur un bridge. Deux machines sur le même bridge sont sur le même réseau de niveau 2 : elles se voient en Ethernet et reçoivent les broadcasts l'une de l'autre.</p>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  PHY["carte physique&lt;br/&gt;de l'hyperviseur"]
+  subgraph HV["Hôte Proxmox"]
+    B0["vmbr0&lt;br/&gt;relié à la carte physique"]
+    B1["vmbr1&lt;br/&gt;aucun port physique"]
+    B2["vmbr2&lt;br/&gt;aucun port physique"]
+    B3["vmbr3&lt;br/&gt;aucun port physique"]
+  end
+  PHY --- B0
+  B0 --- O["OPNsense net0"]
+  O2["OPNsense net1"] --- B1
+  B1 --- X0["box net0"]
+  B2 --- X1["box net1"]
+  B3 --- X2["box net2"]
+  B2 --- K2["client2 net0"]
+  B3 --- K3["client3 net0"]
+  classDef n0 fill:#5B6576,stroke:#5B6576,color:#fff
+  classDef n1 fill:#1F46C8,stroke:#1F46C8,color:#fff
+  classDef n2 fill:#0B7A6E,stroke:#0B7A6E,color:#fff
+  classDef n3 fill:#B0247A,stroke:#B0247A,color:#fff
+  class B0 n0
+  class B1 n1
+  class B2 n2
+  class B3 n3
+</pre>
+    <p class="cap">Seul vmbr0 sort de la machine physique. vmbr1, vmbr2 et vmbr3 sont des réseaux internes totalement isolés.</p>
+  </div>
+  <h3>Création</h3>
+  <p>Dans l'interface web : <em>Datacenter › nœud › System › Network › Create › Linux Bridge</em>. Pour <span class="net n2">vmbr2</span> et <span class="net n3">vmbr3</span> :</p>
+  <ul>
+    <li><strong>IPv4/CIDR vide</strong> : l'hyperviseur n'a pas besoin d'IP sur ces réseaux, il se contente de commuter les trames.</li>
+    <li><strong>Bridge ports vide</strong> : aucune carte physique, le réseau reste interne.</li>
+    <li>Cliquer sur <em>Apply Configuration</em> pour appliquer sans redémarrer.</li>
+  </ul>
+  <p>Équivalent dans <code>/etc/network/interfaces</code> de l'hôte :</p>
+  <div class="codewrap"><span class="file">/etc/network/interfaces (hôte Proxmox)</span>
+<pre class="code">auto vmbr2
+iface vmbr2 inet manual
+    bridge-ports none
+    bridge-stp off
+    bridge-fd 0
+
+auto vmbr3
+iface vmbr3 inet manual
+    bridge-ports none
+    bridge-stp off
+    bridge-fd 0</pre></div>
+  <div class="callout info">
+    <span class="t">Ce que veulent dire ces options</span>
+    <ul>
+      <li><code>inet manual</code> : l'interface existe mais sans adresse IP.</li>
+      <li><code>bridge-ports none</code> : aucune interface physique n'est rattachée.</li>
+      <li><code>bridge-stp off</code> : pas de Spanning Tree, inutile ici puisqu'il n'y a pas de boucle possible.</li>
+      <li><code>bridge-fd 0</code> : pas de délai d'attente avant que le bridge commence à transmettre.</li>
+    </ul>
+  </div>
+  <div class="callout why">
+    <span class="t">Pourquoi l'isolation compte</span>
+    <p>Comme <span class="net n2">vmbr2</span> n'a aucun lien avec l'extérieur, client2 n'a qu'une seule porte de sortie : la box. C'est exactement ce qu'on veut démontrer. Tout le trafic de client2 passe par un point de contrôle unique, où on peut router, traduire et filtrer.</p>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="vms">
+  <h2><span class="n">5</span>Création des conteneurs</h2>
+  <p>Les trois machines Debian sont des <strong>conteneurs LXC</strong> créés à partir du template Debian 13 récupéré sur le stockage NFS. Un template est un modèle figé qui sert de base à chaque nouvelle machine.</p>
+  <div class="callout why">
+    <span class="t">Conteneur LXC ou machine virtuelle ?</span>
+    <p>Une VM émule une machine complète avec son propre noyau. Un conteneur LXC <strong>partage le noyau de l'hyperviseur</strong> et n'isole que les processus, le système de fichiers et le réseau. Il démarre en quelques secondes et consomme très peu de ressources, ce qui est idéal pour une maquette réseau avec plusieurs machines.</p>
+  </div>
+  <h3>Branchement des cartes réseau</h3>
+  <p>Pour un conteneur, <strong>c'est Proxmox qui gère la configuration réseau</strong> : on la définit dans <em>conteneur › Network</em>, et Proxmox l'écrit lui-même dans le conteneur à chaque démarrage. Équivalent en ligne de commande sur l'hôte :</p>
+  <div class="codewrap"><span class="file">shell de l'hôte Proxmox</span>
+<pre class="code"><span class="c"># box : une carte par réseau</span>
+pct set 100 \
+  --net0 name=eth0,bridge=vmbr1,ip=dhcp \
+  --net1 name=eth1,bridge=vmbr2,ip=10.10.2.1/24 \
+  --net2 name=eth2,bridge=vmbr3,ip=10.10.3.1/24
+
+<span class="c"># clients : DHCP sur leur réseau</span>
+pct set 101 --net0 name=eth0,bridge=vmbr2,ip=dhcp
+pct set 102 --net0 name=eth0,bridge=vmbr3,ip=dhcp</pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Conteneur</th><th>Carte Proxmox</th><th>Bridge</th><th>Interface</th><th>IPv4</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="3">box (CT 100)</td><td><code>net0</code></td><td><span class="net n1">vmbr1</span></td><td><code>eth0</code></td><td>DHCP (10.0.0.137)</td></tr>
+      <tr><td><code>net1</code></td><td><span class="net n2">vmbr2</span></td><td><code>eth1</code></td><td>10.10.2.1/24</td></tr>
+      <tr><td><code>net2</code></td><td><span class="net n3">vmbr3</span></td><td><code>eth2</code></td><td>10.10.3.1/24</td></tr>
+      <tr><td>client2 (CT 101)</td><td><code>net0</code></td><td><span class="net n2">vmbr2</span></td><td><code>eth0</code></td><td>DHCP (10.10.2.131)</td></tr>
+      <tr><td>client3 (CT 102)</td><td><code>net0</code></td><td><span class="net n3">vmbr3</span></td><td><code>eth0</code></td><td>DHCP (10.10.3.114)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout info">
+    <span class="t">Pourquoi <code>eth0@if42</code> ?</span>
+    <p>Chaque carte d'un conteneur est une <strong>paire veth</strong> : un « câble virtuel » avec un bout dans le conteneur (<code>eth0</code>) et l'autre sur l'hôte, branché au bridge. Le suffixe <code>@if42</code> donne le numéro d'interface du bout côté hôte. C'est d'ailleurs ce détail qui a permis d'identifier que les machines étaient des conteneurs.</p>
+  </div>
+  <div class="callout warn">
+    <span class="t">IPv4 sur « DHCP », pas sur « Static » vide</span>
+    <p>Si le champ IPv4 de la carte n'est pas réglé sur DHCP, Proxmox ne configure aucune adresse dans le conteneur : il ne reste qu'une IPv6 link-local <code>fe80::</code> et aucune route. Toute modification à la main de <code>/etc/network/interfaces</code> dans le conteneur est écrasée au prochain démarrage.</p>
+  </div>
+  <p>Nom d'hôte de chaque conteneur :</p>
+  <div class="codewrap">
+<pre class="code">hostnamectl set-hostname box        <span class="c"># client2 / client3 selon le conteneur</span></pre></div>
+</section>
+
+<!-- 6 -->
+<section id="interfaces">
+  <h2><span class="n">6</span>Adressage de la box</h2>
+  <p>La box a trois interfaces, une par réseau. Leur configuration est définie dans Proxmox (section 5), qui génère le fichier suivant dans le conteneur :</p>
+  <div class="codewrap"><span class="file">/etc/network/interfaces (box, généré par Proxmox)</span>
+<pre class="code">auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp           <span class="c"># vmbr1 : adresse donnée par OPNsense</span>
+
+auto eth1
+iface eth1 inet static         <span class="c"># vmbr2 : passerelle des clients 10.10.2.0/24</span>
+    address 10.10.2.1/24
+
+auto eth2
+iface eth2 inet static         <span class="c"># vmbr3 : passerelle des clients 10.10.3.0/24</span>
+    address 10.10.3.1/24</pre></div>
+  <div class="callout info">
+    <span class="t">Lecture ligne par ligne</span>
+    <ul>
+      <li><code>auto eth1</code> : active l'interface au démarrage.</li>
+      <li><code>inet static</code> : adresse IPv4 fixe.</li>
+      <li><code>address 10.10.2.1/24</code> : adresse et masque en notation CIDR.</li>
+      <li>Aucune passerelle sur eth1 et eth2 : la seule route par défaut de la box doit pointer vers l'OPNsense, et elle est reçue par DHCP sur eth0.</li>
+    </ul>
+  </div>
+  <p>Relevé sur la box pendant le TP :</p>
+  <div class="codewrap"><span class="file">root@box:~# ip -br a ; ip route</span>
+<pre class="code">lo               UNKNOWN        127.0.0.1/8 ::1/128
+eth0@if37        UP             10.0.0.137/24
+eth1@if38        UP             10.10.2.1/24
+eth2@if39        UP             10.10.3.1/24
+
+default via 10.0.0.254 dev eth0
+10.0.0.0/24 dev eth0 proto kernel scope link src 10.0.0.137
+10.10.2.0/24 dev eth1 proto kernel scope link src 10.10.2.1
+10.10.3.0/24 dev eth2 proto kernel scope link src 10.10.3.1</pre></div>
+  <div class="callout why">
+    <span class="t">Les routes « connectées »</span>
+    <p>Dès qu'on met une adresse sur une interface, le noyau ajoute automatiquement la route vers le réseau correspondant (<code>proto kernel</code>). La box sait donc déjà joindre 10.10.2.0/24 et 10.10.3.0/24 sans aucune route manuelle. Pour tout le reste, elle utilise la route par défaut vers l'OPNsense en 10.0.0.254.</p>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="routage">
+  <h2><span class="n">7</span>Routage et IP forwarding</h2>
+  <p>Par défaut, Linux se comporte comme une machine terminale : s'il reçoit un paquet qui ne lui est pas destiné, il le jette. Pour qu'il transmette les paquets d'une interface à une autre, il faut activer l'<strong>IP forwarding</strong>.</p>
+  <div class="codewrap"><span class="file">box</span>
+<pre class="code">echo "net.ipv4.ip_forward=1" &gt; /etc/sysctl.d/99-forward.conf
+sysctl --system
+sysctl net.ipv4.ip_forward     <span class="c"># doit afficher = 1</span></pre></div>
+  <div class="callout warn">
+    <span class="t">Spécificité Debian 13</span>
+    <p>Depuis Debian 13 (Trixie), le fichier <code>/etc/sysctl.conf</code> n'est plus lu par défaut. Les paramètres doivent être placés dans un fichier de <code>/etc/sysctl.d/</code>. Écrire dans <code>sysctl.conf</code> fonctionnerait en apparence avec <code>sysctl -p</code>, mais serait perdu au redémarrage.</p>
+  </div>
+  <p>Ce que fait la box quand un paquet arrive :</p>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart TD
+  A["Paquet reçu sur eth1&lt;br/&gt;src 10.10.2.131 dst 1.1.1.1"] --> B{"Destination =&lt;br/&gt;une IP de la box ?"}
+  B -- oui --> L["Traité localement&lt;br/&gt;ex. requête DNS ou DHCP"]
+  B -- non --> C{"ip_forward = 1 ?"}
+  C -- non --> D["Paquet jeté"]
+  C -- oui --> E["Consultation de la&lt;br/&gt;table de routage"]
+  E --> F["1.1.1.1 ne correspond à aucun&lt;br/&gt;réseau connecté : route par défaut&lt;br/&gt;via 10.0.0.254 sur eth0"]
+  F --> G["Hook postrouting nftables&lt;br/&gt;masquerade"]
+  G --> H["Émis sur eth0&lt;br/&gt;src 10.0.0.137 dst 1.1.1.1"]
+</pre>
+    <p class="cap">Chemin de décision d'un paquet traversant la box.</p>
+  </div>
+  <div class="callout why">
+    <span class="t">Routage entre client2 et client3</span>
+    <p>Avec le forwarding activé, la box route aussi entre ses deux réseaux clients : client2 peut joindre client3 directement, sans passer par l'OPNsense, puisque les deux réseaux sont connectés à la box. C'est le comportement d'un routeur « ouvert ». Si on veut isoler les deux réseaux, il faut ajouter des règles de filtrage (voir section 14).</p>
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="nat">
+  <h2><span class="n">8</span>NAT et masquerade</h2>
+  <p>Le forwarding seul ne suffit pas. Quand client2 envoie un paquet vers Internet, la box le transmet bien à l'OPNsense, mais l'OPNsense ne connaît pas le réseau 10.10.2.0/24 : il ne sait pas où renvoyer la réponse. Le <strong>masquerade</strong> résout ce problème en remplaçant l'adresse source des paquets sortants par l'adresse de la box.</p>
+  <div class="codewrap"><span class="file">/etc/nftables.conf (box)</span>
+<pre class="code">#!/usr/sbin/nft -f
+flush ruleset
+
+table ip nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    oifname "eth0" ip saddr 10.10.2.0/23 masquerade
+  }
+}</pre></div>
+  <div class="codewrap">
+<pre class="code">apt install -y nftables
+systemctl enable --now nftables
+nft list ruleset       <span class="c"># vérification</span></pre></div>
+  <div class="callout info">
+    <span class="t">Décryptage de la règle</span>
+    <ul>
+      <li><code>flush ruleset</code> : on repart d'une configuration vide à chaque chargement.</li>
+      <li><code>table ip nat</code> : une table pour IPv4, nommée <code>nat</code> (le nom est libre).</li>
+      <li><code>type nat hook postrouting</code> : la chaîne s'exécute juste avant l'émission du paquet, <em>après</em> la décision de routage. C'est là qu'on modifie l'adresse source.</li>
+      <li><code>priority srcnat</code> : nom symbolique de la priorité 100, la priorité standard du NAT source.</li>
+      <li><code>policy accept</code> : la chaîne ne bloque rien, elle ne sert qu'à traduire.</li>
+      <li><code>oifname "eth0"</code> : uniquement pour les paquets qui sortent vers l'OPNsense. Le trafic client2 ↔ client3 n'est pas traduit.</li>
+      <li><code>ip saddr 10.10.2.0/23</code> : uniquement pour les paquets venant des réseaux clients. Un /23 regroupe deux /24 consécutifs : 10.10.2.0 à 10.10.3.255, soit exactement vmbr2 et vmbr3 en une seule règle.</li>
+      <li><code>masquerade</code> : remplace l'IP source par l'IP actuelle de eth0. Contrairement à <code>snat to</code>, il n'y a pas besoin de connaître l'adresse à l'avance, ce qui est idéal puisqu'eth0 est en DHCP.</li>
+    </ul>
+  </div>
+  <h3>Trajet complet d'un ping vers Internet</h3>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  participant C2 as client2 10.10.2.131
+  participant B as box
+  participant O as OPNsense
+  participant I as Internet 1.1.1.1
+  C2->>B: src 10.10.2.131 vers 1.1.1.1
+  Note over B: forwarding puis masquerade&lt;br/&gt;src devient 10.0.0.137&lt;br/&gt;entrée créée dans conntrack
+  B->>O: src 10.0.0.137 vers 1.1.1.1
+  Note over O: NAT sortant vers le WAN&lt;br/&gt;src devient l'IP WAN
+  O->>I: src IP WAN vers 1.1.1.1
+  I-->>O: réponse vers IP WAN
+  Note over O: dé-NAT&lt;br/&gt;dst redevient 10.0.0.137
+  O-->>B: réponse vers 10.0.0.137
+  Note over B: conntrack retrouve la connexion&lt;br/&gt;dst redevient 10.10.2.131
+  B-->>C2: réponse vers 10.10.2.131
+</pre>
+    <p class="cap">Double NAT : la box traduit une première fois, l'OPNsense une seconde fois.</p>
+  </div>
+  <div class="callout why">
+    <span class="t">Comment la réponse retrouve son chemin : conntrack</span>
+    <p>Le noyau garde une table de suivi des connexions (<em>connection tracking</em>). Quand la box masque la source d'un paquet, elle mémorise « 10.10.2.131 parle à 1.1.1.1, traduit en 10.0.0.137 ». Quand la réponse revient, elle consulte cette table et restaure automatiquement la bonne destination. On n'écrit aucune règle pour le retour : c'est implicite. On peut observer cette table avec <code>conntrack -L</code> (paquet <code>conntrack</code>).</p>
+  </div>
+  <div class="callout info">
+    <span class="t">Le calcul du /23</span>
+    <p>En binaire, 10.10.2.0 et 10.10.3.0 ne diffèrent que par le dernier bit du troisième octet (<code>00000010</code> et <code>00000011</code>). En fixant 23 bits au lieu de 24, on laisse ce bit libre : le préfixe couvre les deux réseaux. C'est une <strong>agrégation de routes</strong> (supernetting), le même principe qu'utilisent les routeurs pour résumer plusieurs réseaux en une seule entrée.</p>
+  </div>
+  <div class="callout tip">
+    <span class="t">Voir le masquerade en direct</span>
+    <p>Sur la box, lance <code>tcpdump -ni eth1 icmp</code> dans un terminal et <code>tcpdump -ni eth0 icmp</code> dans un autre, puis fais un ping depuis client2. Sur eth1 tu vois l'IP 10.10.2.x, sur eth0 la même requête apparaît avec l'IP 10.0.0.137 de la box.</p>
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="dhcp">
+  <h2><span class="n">9</span>Service DHCP</h2>
+  <p>Le DHCP distribue automatiquement aux clients leur adresse IP, leur masque, leur passerelle et leur serveur DNS. On utilise <strong>dnsmasq</strong>, un logiciel léger qui fait à la fois DHCP et DNS, ce qui correspond exactement au rôle de la box sur le schéma.</p>
+  <div class="codewrap"><span class="file">box</span>
+<pre class="code">apt install -y dnsmasq</pre></div>
+  <div class="codewrap"><span class="file">/etc/dnsmasq.d/lab.conf</span>
+<pre class="code">interface=eth1
+interface=eth2
+bind-interfaces
+domain=lab.local
+no-resolv
+server=10.0.0.254
+dhcp-range=10.10.2.100,10.10.2.200,255.255.255.0,12h
+dhcp-range=10.10.3.100,10.10.3.200,255.255.255.0,12h</pre></div>
+  <div class="codewrap">
+<pre class="code">systemctl restart dnsmasq
+systemctl status dnsmasq --no-pager</pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Directive</th><th>Effet</th></tr></thead>
+    <tbody>
+      <tr><td><code>interface=eth1</code><br><code>interface=eth2</code></td><td>dnsmasq n'écoute que sur les réseaux clients. Il ne doit surtout pas répondre sur eth0, sinon il entrerait en concurrence avec le DHCP de l'OPNsense sur <span class="net n1">vmbr1</span>.</td></tr>
+      <tr><td><code>bind-interfaces</code></td><td>Se lie explicitement à ces interfaces au lieu d'écouter sur toutes les adresses.</td></tr>
+      <tr><td><code>no-resolv</code></td><td>Ignore <code>/etc/resolv.conf</code> de la box pour choisir le serveur DNS amont.</td></tr>
+      <tr><td><code>server=10.0.0.254</code></td><td>Serveur DNS amont explicite : l'OPNsense. Les noms externes lui sont relayés.</td></tr>
+      <tr><td><code>domain=lab.local</code></td><td>Domaine local annoncé aux clients et ajouté à leurs noms (client2.lab.local).</td></tr>
+      <tr><td><code>dhcp-range=…</code></td><td>Plage d'adresses à distribuer, masque et durée du bail (12 h). dnsmasq associe chaque plage à l'interface dont l'IP appartient au même réseau.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout why">
+    <span class="t">Pourquoi pas d'option routeur ni DNS ?</span>
+    <p>Par défaut, dnsmasq annonce comme passerelle <em>et</em> comme DNS l'adresse de l'interface sur laquelle il répond. Un client de <span class="net n2">vmbr2</span> reçoit donc 10.10.2.1, un client de <span class="net n3">vmbr3</span> reçoit 10.10.3.1. C'est exactement ce qu'on veut, sans rien ajouter.</p>
+  </div>
+  <h3>L'échange DHCP : DORA</h3>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  participant C as client2 sans IP
+  participant D as dnsmasq sur box eth1
+  C->>D: DHCPDISCOVER en broadcast
+  Note over C,D: src 0.0.0.0 vers 255.255.255.255
+  D->>C: DHCPOFFER propose 10.10.2.131
+  C->>D: DHCPREQUEST accepte 10.10.2.131
+  D->>C: DHCPACK confirme le bail
+  Note over C: IP 10.10.2.131/24&lt;br/&gt;passerelle 10.10.2.1&lt;br/&gt;DNS 10.10.2.1&lt;br/&gt;bail de 12 h
+</pre>
+    <p class="cap">Discover, Offer, Request, Acknowledge : les quatre messages d'une attribution DHCP.</p>
+  </div>
+  <div class="callout info">
+    <span class="t">Pourquoi un serveur DHCP par réseau ?</span>
+    <p>Le DISCOVER est un <strong>broadcast</strong> : il ne traverse pas les routeurs. Un client de <span class="net n2">vmbr2</span> ne peut donc jamais atteindre le DHCP de l'OPNsense. C'est pour ça que le schéma place un serveur DHCP sur la box, qui est présente physiquement sur chaque réseau client. L'alternative serait un <em>relais DHCP</em> sur la box qui retransmet les requêtes à un serveur central.</p>
+  </div>
+  <p>Baux distribués, visibles sur la box :</p>
+  <div class="codewrap">
+<pre class="code">cat /var/lib/misc/dnsmasq.leases</pre></div>
+</section>
+
+<!-- 10 -->
+<section id="dns">
+  <h2><span class="n">10</span>Service DNS</h2>
+  <p>Le DNS traduit les noms (<code>debian.org</code>) en adresses IP. dnsmasq, déjà installé pour le DHCP, fait aussi office de <strong>serveur DNS cache et relais</strong> pour les clients.</p>
+  <p>Il répond de deux façons :</p>
+  <ul>
+    <li><strong>Noms locaux</strong> (<code>client3.lab.local</code>) : il répond directement, grâce aux noms que les clients lui ont communiqués lors de leur requête DHCP.</li>
+    <li><strong>Noms externes</strong> (<code>debian.org</code>) : il relaie la question au serveur fixé par <code>server=10.0.0.254</code>, c'est-à-dire l'OPNsense, puis met la réponse en cache. Grâce à <code>no-resolv</code>, ce choix ne dépend pas du <code>resolv.conf</code> de la box, qui pourrait changer au gré du DHCP.</li>
+  </ul>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  participant C as client2
+  participant D as dnsmasq box
+  participant O as OPNsense Unbound
+  participant R as serveurs DNS Internet
+  C->>D: qui est debian.org ?
+  alt réponse déjà en cache
+    D-->>C: réponse immédiate
+  else pas en cache
+    D->>O: qui est debian.org ?
+    O->>R: résolution récursive
+    R-->>O: adresse IP
+    O-->>D: adresse IP
+    D-->>C: adresse IP, mise en cache
+  end
+  C->>D: qui est client3.lab.local ?
+  D-->>C: 10.10.3.114 d'après les baux DHCP
+</pre>
+    <p class="cap">Chaîne de résolution : client, box, OPNsense, Internet.</p>
+  </div>
+  <div class="callout why">
+    <span class="t">Pourquoi un DNS sur la box plutôt que d'envoyer les clients directement vers l'OPNsense ?</span>
+    <ul>
+      <li>Seul le serveur DHCP connaît les noms des clients : c'est donc lui qui peut résoudre <code>client2.lab.local</code>.</li>
+      <li>Le cache local réduit le trafic et accélère les résolutions répétées.</li>
+      <li>La box est la seule machine directement joignable depuis les réseaux clients, c'est le point naturel pour les services réseau de base.</li>
+    </ul>
+  </div>
+  <div class="callout tip">
+    <span class="t">Tester la résolution</span>
+    <p>Depuis un client : <code>dig debian.org</code> (paquet <code>bind9-dnsutils</code>). La ligne <code>SERVER:</code> en bas de la réponse doit indiquer 10.10.2.1 ou 10.10.3.1. Pour un nom local : <code>dig client3.lab.local</code>.</p>
+  </div>
+</section>
+
+<!-- 11 -->
+<section id="clients">
+  <h2><span class="n">11</span>Configuration des clients</h2>
+  <p>Les clients n'ont presque rien à configurer : il suffit de régler leur carte <code>net0</code> sur <strong>IPv4 : DHCP</strong> dans Proxmox. Tout le reste leur est fourni par dnsmasq.</p>
+  <p>Relevé sur client2 après obtention du bail :</p>
+  <div class="codewrap"><span class="file">root@Client2:~# ip -br a ; ip route ; cat /etc/resolv.conf</span>
+<pre class="code">lo               UNKNOWN        127.0.0.1/8 ::1/128
+eth0@if42        UP             10.10.2.131/24
+
+default via 10.10.2.1 dev eth0
+10.10.2.0/24 dev eth0 proto kernel scope link src 10.10.2.131
+
+# --- BEGIN PVE ---
+search lab.local
+nameserver 10.10.2.1
+# --- END PVE ---</pre></div>
+  <p>Et sur client3 : <code>10.10.3.114/24</code>, passerelle <code>10.10.3.1</code>.</p>
+  <div class="callout info">
+    <span class="t">Tout vient du DHCP (ou presque)</span>
+    <p>L'adresse et la route par défaut sont fournies par dnsmasq. Le bloc <code>BEGIN PVE</code> dans <code>resolv.conf</code> montre que Proxmox gère aussi ce fichier dans les conteneurs, à partir de l'onglet <em>DNS</em> du conteneur. Si on change le plan d'adressage, on ne modifie que la box : les clients suivent au prochain renouvellement de bail.</p>
+  </div>
+</section>
+
+<!-- 12 -->
+<section id="tests">
+  <h2><span class="n">12</span>Tests et validation</h2>
+  <p>Les tests vont du plus proche au plus lointain : chaque étape valide une couche avant de passer à la suivante. Si un test échoue, le problème se situe entre ce test et le précédent.</p>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  T1["ip a&lt;br/&gt;IP reçue ?"] --> T2["ping 10.10.2.1&lt;br/&gt;passerelle ?"]
+  T2 --> T3["ping 10.0.0.254&lt;br/&gt;forwarding ?"]
+  T3 --> T4["ping 1.1.1.1&lt;br/&gt;NAT ?"]
+  T4 --> T5["ping debian.org&lt;br/&gt;DNS ?"]
+  T5 --> T6["ping client3.lab.local&lt;br/&gt;DNS local ?"]
+</pre>
+    <p class="cap">Progression des tests, de la couche locale vers Internet.</p>
+  </div>
+  <h3>Résultats obtenus</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Test</th><th>client2</th><th>client3</th><th>Ce que ça valide</th></tr></thead>
+    <tbody>
+      <tr><td><code>ip -br a</code></td><td>10.10.2.131/24</td><td>10.10.3.114/24</td><td>DHCP dnsmasq</td></tr>
+      <tr><td><code>ping</code> passerelle</td><td>✔ ttl=64</td><td>✔ ttl=64</td><td>Lien L2 et adressage de la box</td></tr>
+      <tr><td><code>ping 10.0.0.254</code></td><td>✔ ttl=63</td><td>✔ ttl=63</td><td>IP forwarding + masquerade</td></tr>
+      <tr><td><code>ping 1.1.1.1</code></td><td>✔ ttl=52</td><td>✔ ttl=52</td><td>Chaîne complète jusqu'à Internet</td></tr>
+      <tr><td><code>ping debian.org</code></td><td>✔</td><td>✔</td><td>DNS externe via dnsmasq et l'OPNsense</td></tr>
+      <tr><td><code>ping client2.lab.local</code></td><td>—</td><td>✔ 10.10.2.131, ttl=63</td><td>DNS local et routage vmbr3 → vmbr2</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout why">
+    <span class="t">Lire le TTL pour prouver le routage</span>
+    <p>Linux envoie ses paquets avec un TTL de 64, et chaque routeur traversé le décrémente de 1. Une réponse de la box elle-même arrive donc avec <code>ttl=64</code>, une réponse de l'OPNsense avec <code>ttl=63</code> : il y a exactement un routeur entre les deux, la box. Même logique pour 1.1.1.1 : <code>ttl=53</code> depuis la box, <code>ttl=52</code> depuis un client, soit un saut de plus. Le ping de client3 vers client2 en <code>ttl=63</code> prouve que le trafic entre les deux LAN passe par la box sans aller jusqu'à l'OPNsense.</p>
+  </div>
+  <h3>Vérifications côté box</h3>
+  <div class="codewrap">
+<pre class="code">sysctl net.ipv4.ip_forward           <span class="c"># = 1</span>
+nft list ruleset                     <span class="c"># règle masquerade présente</span>
+systemctl is-enabled dnsmasq nftables  <span class="c"># enabled x2</span>
+ss -ulpn | grep -E ':53|:67'         <span class="c"># dnsmasq écoute en DNS et DHCP</span>
+cat /var/lib/misc/dnsmasq.leases     <span class="c"># baux des clients</span></pre></div>
+  <h3>Test de persistance</h3>
+  <p>La box a été redémarrée une fois la configuration terminée. Après le reboot : dnsmasq et nftables actifs, <code>ip_forward = 1</code>, règle masquerade rechargée, et client3 joint toujours <code>debian.org</code> et <code>client2.lab.local</code>.</p>
+  <ul class="check">
+    <li>client2 et client3 obtiennent une IP dans le bon réseau</li>
+    <li>Les deux clients joignent Internet par IP et par nom</li>
+    <li>Les clients se résolvent entre eux via lab.local</li>
+    <li>La configuration survit à un redémarrage de la box</li>
+  </ul>
+</section>
+
+<!-- 13 -->
+<section id="depannage">
+  <h2><span class="n">13</span>Incidents et dépannage</h2>
+  <h3>Incidents rencontrés pendant le TP</h3>
+  <h4>1. dnsmasq en échec au démarrage</h4>
+  <p><code>systemctl is-active dnsmasq</code> renvoyait <code>failed</code>. La configuration désignait des interfaces <code>ens19</code> et <code>ens20</code>, noms typiques d'une VM virtio, alors que la box est un conteneur dont les interfaces s'appellent <code>eth1</code> et <code>eth2</code>. Avec <code>bind-interfaces</code>, dnsmasq refuse de démarrer sur une interface inexistante.</p>
+  <div class="codewrap">
+<pre class="code">sed -i 's/ens19/eth1/; s/ens20/eth2/' /etc/dnsmasq.d/lab.conf
+systemctl restart dnsmasq</pre></div>
+  <h4>2. Clients sans adresse IPv4</h4>
+  <p>client2 n'avait qu'une IPv6 link-local et aucune route : <code>Network is unreachable</code> sur tous les pings. Les clients avaient démarré <em>pendant</em> que dnsmasq était en panne : leurs requêtes DHCP étaient restées sans réponse et ils avaient abandonné. Après vérification que la carte était bien en IPv4 DHCP dans Proxmox, un Shutdown puis Start a suffi à obtenir un bail.</p>
+  <div class="callout tip">
+    <span class="t">Leçon : l'ordre de démarrage compte</span>
+    <p>Un service réseau doit être opérationnel avant ses clients. En production, on règle l'ordre de démarrage dans <em>Options › Start/Shutdown order</em> de Proxmox : OPNsense d'abord, puis la box, puis les clients.</p>
+  </div>
+  <h4>3. Tester depuis la bonne machine</h4>
+  <p>Une première série de pings a été lancée depuis la box au lieu d'un client. Elle réussissait, mais ne prouvait rien sur le forwarding ni le NAT, puisque les paquets ne traversaient pas la box. Les tests de routage doivent toujours partir d'une machine située <em>derrière</em> le routeur.</p>
+  <h3>Tableau de dépannage général</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Symptôme</th><th>Cause probable</th><th>Vérification / correction</th></tr></thead>
+    <tbody>
+      <tr><td>La box n'a pas d'IP sur eth0</td><td>OPNsense éteint ou mauvais bridge sur net0</td><td>Démarrer OPNsense, vérifier <code>pct config 100</code></td></tr>
+      <tr><td>Le client n'obtient pas d'IP</td><td>dnsmasq arrêté, mauvaise interface ou client sur le mauvais bridge</td><td><code>journalctl -u dnsmasq</code>, <code>tcpdump -ni eth1 port 67 or port 68</code></td></tr>
+      <tr><td>dnsmasq ne démarre pas : port 53 occupé</td><td>Un autre résolveur écoute déjà (systemd-resolved)</td><td><code>ss -ulpn | grep :53</code>, désactiver le service concurrent</td></tr>
+      <tr><td>ping 10.10.2.1 OK, ping 10.0.0.254 KO</td><td>Forwarding désactivé ou masquerade absent</td><td><code>sysctl net.ipv4.ip_forward</code>, <code>nft list ruleset</code></td></tr>
+      <tr><td>ping 1.1.1.1 OK, ping debian.org KO</td><td>DNS : resolv.conf du client ou de la box</td><td><code>cat /etc/resolv.conf</code> sur les deux, <code>dig debian.org</code></td></tr>
+      <tr><td>Client avec seulement une IPv6 <code>fe80::</code></td><td>IPv4 non réglée sur DHCP, ou client démarré avant dnsmasq</td><td>Carte net0 en DHCP dans Proxmox, puis Shutdown et Start</td></tr>
+      <tr><td>dnsmasq en <code>failed</code></td><td>Interface inexistante dans <code>interface=</code></td><td>Comparer avec <code>ip -br a</code>, <code>journalctl -u dnsmasq</code></td></tr>
+      <tr><td>Modification réseau perdue au redémarrage d'un conteneur</td><td>Proxmox régénère la config réseau des conteneurs</td><td>Configurer dans <em>conteneur › Network</em> ou avec <code>pct set</code></td></tr>
+      <tr><td>Tout marche puis casse au reboot</td><td>Configuration non persistée</td><td><code>systemctl is-enabled nftables dnsmasq</code>, fichier dans sysctl.d</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout tip">
+    <span class="t">La méthode qui marche à tous les coups</span>
+    <p>Suivre le paquet. <code>tcpdump</code> sur chaque interface traversée, dans l'ordre : là où le paquet disparaît, tu as trouvé le problème. S'il sort de la box mais que la réponse ne revient pas, regarde côté OPNsense ; s'il n'entre jamais dans la box, regarde côté client ou bridge.</p>
+  </div>
+</section>
+
+<!-- 14 -->
+<section id="plus-loin">
+  <h2><span class="n">14</span>Limites et améliorations</h2>
+  <h3>Filtrage : la box ne filtre rien</h3>
+  <p>En l'état, la box route tout, y compris entre les deux réseaux clients. Pour un vrai cloisonnement, on ajouterait une table de filtrage avec une politique « tout interdit sauf » :</p>
+  <div class="codewrap"><span class="file">ajout possible à /etc/nftables.conf</span>
+<pre class="code">table inet filter {
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+    ct state established,related accept      <span class="c"># réponses autorisées</span>
+    iifname { "eth1", "eth2" } oifname "eth0" accept   <span class="c"># clients vers l'extérieur</span>
+    <span class="c"># pas de règle eth1 &lt;-&gt; eth2 : les deux LAN sont isolés</span>
+  }
+}</pre></div>
+  <div class="callout why">
+    <span class="t">Le principe du moindre privilège</span>
+    <p>Chaque réseau ne devrait pouvoir parler qu'à ce dont il a besoin. Si client2 est compromis, l'isolation empêche l'attaquant de rebondir directement sur client3 : c'est la base de la segmentation réseau.</p>
+  </div>
+  <h3>Supprimer le double NAT</h3>
+  <p>Au lieu de masquer les clients sur la box, on peut donner à la box une IP fixe sur <span class="net n1">vmbr1</span> (elle a aujourd'hui 10.0.0.137 par DHCP, qui peut changer) et ajouter sur l'OPNsense des routes statiques : 10.10.2.0/23 via l'IP fixe de la box. L'OPNsense voit alors les vraies IP des clients, ce qui permet des règles de pare-feu et des journaux par machine. Il faut penser à inclure ces réseaux dans le NAT sortant de l'OPNsense.</p>
+  <h3>Services séparés</h3>
+  <p>dnsmasq convient très bien à une maquette. En production, on séparerait souvent les rôles : <strong>Kea</strong> pour le DHCP (successeur d'ISC DHCP) et <strong>BIND9</strong> ou <strong>Unbound</strong> pour le DNS, avec mise à jour dynamique des enregistrements.</p>
+  <h3>Réservations DHCP</h3>
+  <p>Pour qu'une machine garde toujours la même IP sans configuration statique : <code>dhcp-host=BC:24:11:xx:xx:xx,client2,10.10.2.10</code> dans la configuration dnsmasq.</p>
+</section>
+
+<!-- 15 -->
+<section id="glossaire">
+  <h2><span class="n">15</span>Glossaire</h2>
+  <div class="tablewrap"><table>
+    <tbody>
+      <tr><th>Bridge</th><td>Switch virtuel dans le noyau Linux de l'hyperviseur, relie les cartes réseau des VM et conteneurs au niveau 2.</td></tr>
+      <tr><th>CIDR</th><td>Notation adresse/longueur de préfixe, ex. 10.10.2.0/24 = masque 255.255.255.0.</td></tr>
+      <tr><th>conntrack</th><td>Table du noyau qui suit les connexions en cours, indispensable au NAT et au filtrage à états.</td></tr>
+      <tr><th>DHCP</th><td>Protocole d'attribution automatique d'adresse IP, passerelle et DNS (ports UDP 67/68).</td></tr>
+      <tr><th>DNS</th><td>Système de résolution des noms en adresses IP (port 53).</td></tr>
+      <tr><th>IP forwarding</th><td>Capacité du noyau à transmettre un paquet d'une interface à une autre, ce qui fait d'une machine un routeur.</td></tr>
+      <tr><th>Masquerade</th><td>Forme de NAT source qui remplace l'IP source par l'IP courante de l'interface de sortie.</td></tr>
+      <tr><th>NAT</th><td>Traduction d'adresses réseau : réécriture des adresses IP d'un paquet au passage d'un routeur.</td></tr>
+      <tr><th>nftables</th><td>Framework de filtrage et de NAT du noyau Linux, successeur d'iptables.</td></tr>
+      <tr><th>Passerelle</th><td>Routeur vers lequel une machine envoie tout ce qui n'est pas dans son réseau local.</td></tr>
+      <tr><th>RFC 1918</th><td>Définit les plages d'adresses privées : 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16.</td></tr>
+      <tr><th>LXC</th><td>Conteneurs Linux : isolation de processus et de réseau partageant le noyau de l'hôte.</td></tr>
+      <tr><th>Supernet</th><td>Préfixe plus court qui regroupe plusieurs réseaux contigus, ex. 10.10.2.0/23 = 10.10.2.0/24 + 10.10.3.0/24.</td></tr>
+      <tr><th>TTL</th><td>Compteur décrémenté à chaque routeur traversé ; permet de compter les sauts.</td></tr>
+      <tr><th>veth</th><td>Paire d'interfaces virtuelles reliées comme un câble, utilisée pour brancher un conteneur à un bridge.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  Compte rendu de TP — maquette réseau routée sous Proxmox. Configuration relevée et validée sur le nœud sti-4a-fise-02-08, y compris après redémarrage de la box.
+</footer>
+</main>
+</div>
+
+<button class="themebtn" id="themebtn" type="button">Changer de thème</button>
+
+<script>
+(function(){
+  // Boutons copier sur les blocs de code
+  document.querySelectorAll('pre.code').forEach(function(pre){
+    var wrap = pre.parentElement;
+    var b = document.createElement('button');
+    b.className = 'copy'; b.type = 'button'; b.textContent = 'Copier';
+    b.addEventListener('click', function(){
+      var txt = pre.innerText;
+      var done = function(){ b.textContent = 'Copié'; setTimeout(function(){ b.textContent = 'Copier'; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(done, function(){ fallback(txt); done(); });
+      } else { fallback(txt); done(); }
+    });
+    wrap.appendChild(b);
+  });
+  function fallback(t){
+    var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta);
+    ta.select(); try { document.execCommand('copy'); } catch(e){} document.body.removeChild(ta);
+  }
+  // Thème clair / sombre
+  var root = document.documentElement;
+  try { var s = localStorage.getItem('theme'); if (s) root.setAttribute('data-theme', s); } catch(e){}
+  document.getElementById('themebtn').addEventListener('click', function(){
+    var cur = root.getAttribute('data-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch(e){}
+  });
+})();
+</script>
+<script>
+// Rendu Mermaid hors ligne : si les schémas ne sont pas déjà rendus (fichier ouvert en local), on charge Mermaid.
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    var todo = Array.prototype.filter.call(document.querySelectorAll('pre.mermaid'), function(el){
+      return !el.querySelector('svg') && !el.getAttribute('data-processed');
+    });
+    if (!todo.length) return;
+    var sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js';
+    sc.onload = function(){
+      var dark = (document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+      mermaid.initialize({ startOnLoad:false, theme: dark ? 'dark' : 'default', securityLevel:'loose' });
+      mermaid.run({ nodes: todo });
+    };
+    document.head.appendChild(sc);
+  }, 600);
+});
+</script>
+</body>
+</html>
